@@ -27,7 +27,15 @@ sub format {
 
 	unless ($opt_z) {
 	    my $info = 0;
-	    $info = get_mp3info($_) if /\.mp\d\b/i;
+# actually it wasn't a filename problem, it's a bug in the ntfs implementation
+#		if (/^- /) {
+#			print STDERR "\r[failure] illegal filename '$_', please rename.\n";
+#			return;
+#		} else {
+#			print STDERR "get_mp3info <- $_\n";
+			$info = get_mp3info($_) if /\.mp\d\b/i;
+#			print STDERR "get_mp3info -> $info\n";
+#		}
 	    unless ($info) {
 		    return if $opt_h &&! /\.s?html?$/;
 		    return if /\.met$/;
