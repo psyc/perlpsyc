@@ -1,0 +1,221 @@
+#!/usr/bin/perl
+use Net::PSYC;
+
+$nick = shift or $nick = "Keef";
+$server = shift or $server = "ve.symlynx.com";
+$debug = 1;
+
+$!=1;
+
+$chatquery = "";
+$lastnick = "";
+$passwdwait = 0;
+$currentroom = "";
+
+sub printchat;
+sub printdebug;
+sub printstatus;
+
+bind_uniform("psyc://:1144d/~$nick");
+dirty_add(\*STDIN);
+
+while(1){
+	foreach $d (dirty_wait) {
+		if ($d == \*STDIN) {
+			# Senden
+			sendmessage();
+		} else {
+			# Empfangen
+			getmessage();
+		}
+	}
+}
+sub getmessage(){
+	($err,$ip,$port,$mc,$data,%vm) = dirty_getmsg;
+	printdebug "+++\n";
+	printdebug $mc."\n";
+	foreach $i (keys %vm){
+		printdebug "\t$i ".$vm{$i}."\n";
+	}
+	printdebug "Data:" .$data."\n";
+	printdebug "+++\n";
+	if ($mc eq "_message_private"){
+		printchat $vm{':_nick'}." tells you: ".$data."\n";
+		$lastnick = $vm{':_nick'};
+	} elsif ($mc eq "_message_public"){
+		printchat $vm{':_nick'}." says: ".$data."\n";
+	} elsif ($mc eq "_status_person_present"){
+		printstatus "[".$vm{':_nick'}." ".$vm{':_action'}."]\n";
+	} elsif ($mc eq "_query_password") { 
+		$passwdwait = 1;
+	} elsif ($mc eq "_info_description"){
+		printstatus $vm{':_nick'}." : ".$vm{':_action'}."\n";
+	} elsif ($mc eq "_status_place_topic"){
+		printchat "Topic by ".$vm{':_nick'}.": ".$data."\n";
+	} elsif ($mc eq "_status_place_person_enter_login"){
+		($dummy, $currentroom) = split /\@/ , $vm{':_source'};
+	} elsif ($mc eq "_status_person_present_netburp"){
+		($dummy, $currentroom) = split /\@/ , $vm{':_source'};
+	} elsif ($mc eq "_status_place_person_leave_teleport"){
+		print $vm{':_nick'}." ".$vm{':_action'}."\n";
+	} elsif ($mc eq "_status_place_person_enter_teleport"){
+		print $vm{':_nick'}." ".$vm{':_action'}."\n";
+	} elsif ($mc eq "_status_linked"){
+		print "connected...\n";
+	} elsif ($mc eq "_status_linked_still"){
+		print "Already connected...\n";
+	} elsif ($mc eq "_status_linked"){
+		if	($vm{'=_friends'}){
+			print "Friends online: ".$vm{'=_friends'}."\n";
+		}
+	} else {
+		printdebug "+++Could not parse\n";
+		printdebug $mc."\n";
+		foreach $i (keys %vm){
+		printdebug "\t$i ".$vm{$i}."\n";
+	}
+	printdebug "Data:" .$data."\n";
+	printdebug "+++\n";
+}
+}
+sub sendmessage(){
+	my $message = <STDIN>;
+	chomp $message;
+	if ($passwdwait){
+		sendpassword($message);
+		return 1;
+	}
+	@messages = split /\s/ , $message;
+	$command = shift @messages;
+	if ($command eq "/t"){
+		$rnick = shift @messages;
+		$rmessage = join " ", @messages;
+		sendprivmessage($rnick, $rmessage);
+	} elsif ($command eq "/go"){
+		my $room = shift @messages;
+		movegroup($room);
+	} elsif ($command eq "/join"){
+		my $room = shift @messages;
+		joingroup($room);
+	} elsif ($command eq "/leave"){
+		my $room = shift @messages;
+		leavegroup($room);
+	}	elsif ($command eq "/query"){
+		$rnick = shift @messages;
+		if ($rnick){
+			$chatquery = $rnick;
+			printchat "Begin talking to $rnick\n";
+		} else {
+			if ($chatquery){
+				printchat "Ending conversation with $chatquery\n";
+				$chatquery = "";
+			}
+		}	
+	} elsif ($command eq "/bye") {
+		byebye();
+		exit;
+	} elsif ($command eq "/reply"){
+		$chatquery = $lastnick;
+		printchat "Begin talking to $lastnick\n";
+	}	elsif ($command eq "/register"){
+		my $passwd = shift @messages;
+		register($passwd);
+	} elsif ($command eq "/debug"){
+		my $opt = shift @messages;
+		if ($opt eq "on"){
+			$debug = 1;
+		} else {
+			$debug = 0;
+		}
+	}	elsif ($command =~ /^\//) {
+		$rmessage = join " ", $command, @messages;
+		remoteexec($rmessage);
+	} elsif ($chatquery)	{ 
+		$rmessage = join " ", $command, @messages;
+		sendprivmessage ($chatquery , $rmessage);
+	} else {
+		$rmessage = join " " , $command, @messages;
+		sendpubmessage($rmessage);
+#		printchat "Cowardly refusing to say\'".$rmessage."\' to nobody\n";
+	}
+	if ($chatquery){
+		printchat "To $chatquery>";
+	} elsif ($currentroom){
+		printchat "$currentroom>";
+	}
+}
+
+sub register{
+	my $passwd = shift;
+	registernick($passwd);
+}
+sub registernick{
+	my $passwd = shift;
+	$UNI = "psyc://$server/~$nick";
+	print "Trying to register $UNI\n";
+	if ($passwd){
+		$rc = sendmsg($UNI,"_request_link","",{ _password => $passwd });
+	} else {
+		$rc = sendmsg($UNI,"_request_link","",{ });
+	}
+}
+sub sendpassword{
+		my $passwd = shift;
+		$UNI = "psyc://$server/~$nick";
+		print "Sending password...$UNI\n";
+		$rc = sendmsg($UNI,"_set_password","", { _password => $passwd } );
+		$passwdwait = 0;
+}
+sub sendpubmessage{
+		my $rmessage = shift;
+		$UNI = "psyc://$server/\@$currentroom";
+		$rc = sendmsg($UNI,"_message_public",$rmessage, { _nick => $nick} );
+		printchat "You say: $rmessage\n";
+}
+sub sendprivmessage{
+		my $rnick = shift;
+		my $rmessage = shift;
+		$UNI = "psyc://$server/~$rnick";
+		$rc = sendmsg($UNI,"_message_private",$rmessage, { _nick => $nick } );
+		printchat "You tell $rnick: $rmessage\n";
+}
+sub remoteexec{
+	my $rmessage = shift;
+	$UNI = "psyc://$server/\@";
+	$rc = sendmsg($UNI,"_request_execute",$rmessage, {} );
+}
+sub byebye{
+	$UNI = "psyc://$server/~$nick";
+	$rc = sendmsg($UNI,"_request_unlink","",{ _nick => $nick } );
+}
+sub movegroup{
+	my $room = shift;
+	if ($currentroom){
+		$UNI = "psyc://$server/\@$currentroom";
+		$rc = sendmsg($UNI,"_request_leave","",{ _nick => $nick });
+	}
+	$UNI = "psyc://$server/\@$room";
+	$rc = sendmsg($UNI,"_request_enter","", { _nick => $nick });
+	$currentroom = $room;
+}
+sub leavegroup{
+	my $group = shift;
+	$UNI = "psyc://$server/\@$group";
+	$rc = sendmsg($UNI,"_request_leave","", { _nick => $nick });
+}
+sub joingroup{
+	my $group = shift;
+	$UNI = "psyc://$server/\@$group";
+	$rc = sendmsg($UNI,"_request_enter","", {_nick => $nick });
+}
+sub printchat{
+	print @_;
+}
+sub printstatus{
+	print @_;
+}
+sub printdebug{
+	if ($debug){
+		print @_;
+	}
+}

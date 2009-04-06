@@ -1,0 +1,67 @@
+#!/usr/bin/perl -I/ve/perlpsyc/lib/perl5
+#
+# so the time is right for a first version of the 'tell' command
+# which now uses PSYC, not BITnet MSG nor MSEND..
+#
+#	-lynx99
+#
+# i want relay support here, but how?
+
+require 5.000;
+use Net::PSYC;
+
+$DEFSERVER = 'localhost';
+
+require 'getopt.pl';
+&Getopt('dbmn');
+
+$binder = $opt_b || 'psyc://:0d/';      # get yourself any udp port
+
+$method = $opt_m || "_message";
+
+$nick = $opt_n
+     || $ENV{'PSYCNICK'}
+     || $ENV{'NICK'}		# this one should work with any chat system
+     || $ENV{'IRCNICK'}
+     || $ENV{'USER'}
+     || $ENV{'HOST'}
+     || 'unixer';
+
+Net::PSYC::setDEBUG($opt_d) if $opt_d;
+
+bind_uniform( $binder );
+
+unless (@ARGV) {
+	print <<X;
+
+Hello $nick!
+
+usage: $0 [-n <nick>] [-b <uniform>] <recipient> <message>
+
+if <recipient> is no UNI or UNL the message will be
+sent to psyc://<recipient>\@$DEFSERVER ...
+X
+	exit;
+}
+
+$target = shift;
+$target = "psyc://$DEFSERVER/~$target" unless $target =~ /^psyc:/;
+
+if ($#ARGV >= 0) {
+        &go( join( ' ', @ARGV ) );
+} else {
+        while(<STDIN>) {
+                chomp;
+                &go($_);
+        }
+}
+
+
+sub go {
+        my $a = shift;
+        $rc = sendmsg ($target, $method, $a, { _nick => $nick } );
+	die "sendmsg $rc: $!" if $!;  # $rc
+}
+
+
+

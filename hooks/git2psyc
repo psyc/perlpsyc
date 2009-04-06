@@ -1,0 +1,98 @@
+#!/usr/bin/perl
+#
+# psyc notification script for git repositories, written by the lynX
+# based on cvs2psyc and bartman's sender-side post-commit hook.
+#
+# it simply uses git-log to find out where it stands. for more elaborate
+# ways, find inspiration in contrib/hooks/post-receive-email from the git
+# distribution.
+#
+# HOW TO INSTALL:
+#
+# call this from .git/hooks/post-receive or name it so
+
+# CONFIG ZONE:
+
+# place where to submit notifications to. remember to configure that
+# place to allow for external notifications from this hook's host.
+$target  = 'psyc://ve.symlynX.com/@test';
+
+# if you have a tool that shows commits in form of web pages, put
+# the prefix into here. the commit hash will be appended.
+#$webview = 'https://trac.symlynX.com/changeset/';
+
+# GIT handling:
+
+# let's extract the juice of this commit from the last log item
+my ($bighash, $hash, $name, $email, $comment) = split('§',
+		`git-log -n1 --pretty=format:"%H§%h§%an§%ae§%s"`);
+
+die <<X unless $hash;
+$0 is meant to be issued from a GIT post-receive hook.
+X
+
+# in git, the person doing the commit is actually executing this code
+# if the commissioner however isn't also the author of the check-in,
+# you may want to prefer $name over $USER here:
+#$user	= $name || $ENV{'USER'} || 'GIT';
+$user	= $ENV{'USER'} || $name || 'GIT';
+
+# i could extract this from some other git command
+# but it's enough to use the name of the target place, usually
+$project = $1 if ($target =~ /@(.*)$/);
+
+# PSYC socket stuff:
+
+$method  = '_notice_update_software_GIT';
+$remote = $1 if ($target =~ /^psyc:\/\/([^\/]*)/i);
+$port    = 4404;    # should be smarter than that
+
+use Socket;
+$iaddr   = inet_aton($remote)			|| die "no host: $remote";
+$paddr   = sockaddr_in($port, $iaddr);
+
+# there is no real reason why we aren't using UDP here...
+socket(S, PF_INET, SOCK_STREAM, getprotobyname('tcp')) || die "socket: $!";
+
+connect(S, $paddr)				|| die "connect: $!";
+select S; $|=1; select STDOUT;
+
+print S <<X;
+.
+X
+
+if (defined($_ = <S>) && !/^\./) {
+    die "rock hard error";
+}
+while (defined($_ = <S>) && !/^\./) {
+#	print if s/^=//;
+}
+#print "\n";
+
+# THE MESSAGE:
+
+print S <<X;
+:_target\t$target
+
+:_comment\t$comment
+:_hash_commit_long\t$bighash
+:_hash_commit\t$hash
+:_page_commit\t$webview$hash
+:_project\t$project
+:_nick_editor\t$user
+:_name_editor\t$name
+:_mailto_editor\t$email
+$method
+[_project]: [_name_editor] "[_comment]" [_page_commit]
+.
+
+_request_circuit_shutdown
+.
+X
+# the _request_circuit_shutdown shouldn't be necessary for a simple
+# one-way message submission, but psyced needs to become easier about that
+
+# at this point we should wait for the other side to close the socket.. argl
+close (S)					|| die "close: $!";
+exit;
+

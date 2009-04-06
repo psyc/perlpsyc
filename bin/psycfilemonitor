@@ -1,0 +1,68 @@
+#!/usr/bin/perl
+
+# notifies a PSYC target about changes in a filesystem.	-lynX 2005
+# currently using famd as Inotify.pm isn't really ready yet.
+# the script will report content changes to files in the directory.
+#
+# a different approach would be to implement a fuse user-space filesystem
+# which generates psyc notifications as it is being used and does some
+# extra useful jobs like store the files in some smart way (compressed,
+# encrypted, databased, replicated, psyc-synchronized) ...
+#	see http://fuse.sourceforge.net/
+#	and http://about.psyc.eu/Software_Projects
+#		on Multicast Filesystems
+# this again only works for limited file spaces, not entire systems
+# 
+# GENERAL
+# ~*~*~*~
+# If you don't own an always running PSYC server yet, visit 
+# www.psyc.eu and consider using the PSYCdevs' brain community.
+# Or get your very own psyced from http://www.psyced.org
+
+
+$target  = shift;
+$base  = shift;
+
+die <<X unless $base;
+please provide target and directory to monitor as parameters, as in
+    $0 psyc://psyced.org/\@files /tmp
+X
+
+$mc = '_notice_update_file_';
+
+use Net::PSYC;
+
+$user = $ENV{'USER'};
+$host = $ENV{'HOST'};
+chdir($base);
+$base .= '/' unless $base =~ m#/$#;
+
+use SGI::FAM;
+
+my $fam=new SGI::FAM;
+$fam->monitor($base);
+
+my $event=$fam->next_event;
+print "In ", $event->filename, " we find:\n\n   ";
+
+while (1) {
+    my $event=$fam->next_event;
+    last if $event->type eq 'end_exist';
+    print ' ', $event->filename;
+}
+print "\n\nNow waiting for changes.\n";
+
+while (1) {
+    my $event=$fam->next_event; # blocks. see manual for async interface.
+    $_ = $event->filename;
+    print "$_ [", $event->type, "]\n";
+    next if /\.swp/;	# ignore vim swap files
+
+    sendmsg($target, $mc.$event->type,
+	      "([_nick_host]File) [_operation]: " .
+	      "[_path_file][_name_file] ([_size_file])", {
+	_nick_user => $user, _nick_host => $host, _path_file => $base,
+	_operation => $event->type, _name_file => $_, _size_file => (-s $_)
+    } );
+}
+

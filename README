@@ -1,0 +1,37 @@
+<title>top</title><body bgcolor="#ffcc99" text="#333333"
+ style="font-family: tahoma,helvetica,sans-serif">
+<blockquote>
+<blockquote>
+<blockquote>
+<blockquote>
+<table><tr><td>
+<font size=7 style="font-size: 500%">perlpsyc ... </font>
+<font size=2><a href="http://about.psyc.eu/">PSYC</a> IMPLEMENTATION IN <a href="http://perl.pages.de">PERL</a></font>
+
+<pre>
+Net::PSYC with support for TCP, UDP, Event.pm, IO::Select and Gtk2 event loops.
+
+cvs2psyc	- report changes to a CVS tree into a developer chatroom
+dpa2psyc	- gateway a newsfeed into a PSYC subscription room
+notify		- send presence notification from the command line
+psycauth	- authenticate something with your PSYC identity
+psyccmd		- remote control psycmp3 and whatever wants to be controlled
+psycfilemonitor	- notify changes to the file system in realtime
+psycion		- amazing console psyc client!
+psycmail	- report incoming emails to the recipient
+psycmp3		- console mp3 player with PSYC notification and remote control
+psycsyncd	- interfaces PSYC SYNC protocol to DBI (SQL databases etc)
+syslog2psyc	- daemon that receives events from syslog and forwards to psyc
+tell		- send a message to a PSYC recipient
+
+contrib area includes a notification plugin for MovableType blogs.
+
+perldoc documentation inside the module.
+try `perldoc lib/perlxt/Net/PSYC.pm` from here.
+
+http://perl.psyc.eu/ * http://about.psyc.eu/
+
+available by anonymous cvs from cvs.psyc.eu as 'perlpsyc'.
+questions? tell psyc://psyced.org/~lynX or psyc://psyced.org/~el
+
+</pre></td></tr></table>

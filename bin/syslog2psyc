@@ -1,0 +1,65 @@
+#!/usr/bin/perl
+#
+# forwards syslog events to a PSYC target.	-lynX 2006
+#
+# had i known how easy it is, i would have done this 1997
+#
+# first set up a pipe where we can get syslog events from:
+#	mkfifo /dev/psyc
+#	chown <user> /dev/psyc
+#
+# then configure /dev/psyc as destination for syslog messages
+#
+# in syslog-ng.conf it may look like this:
+#	destination psyc { pipe("/dev/psyc"); };
+#	log { source(src); destination(psyc); };
+#
+# in syslog.conf it may look like this:
+#	*.warn;*.err			|/dev/psyc
+#
+# finally run this script as <user>
+# you may later want to refine the type of messages that are
+# forwarded to you.
+#
+# If you don't own an always running PSYC server yet, visit 
+# www.psyc.eu and consider using the PSYCdevs' brain community.
+# Or get your very own psyced from http://www.psyced.org
+# It has a syslog.c ready to use in the place/ folder.
+
+$target  = shift;
+$pipe  = shift;
+$pipe = '/dev/psyc' unless -r $pipe;
+$pipe = '/dev/console' unless -r $pipe;
+$pipe = '/dev/xconsole' unless -r $pipe;
+$pipe = 0 unless -r $pipe;
+
+die <<X unless $target and $pipe;
+please provide target and pipe as parameters, as in
+    $0 psyc://localhost/\@syslog /dev/psyc
+X
+
+$mc = '_notice_system_event';
+
+use Net::PSYC;
+
+$user = $ENV{'USER'};
+$host = $ENV{'HOST'};
+
+open(IN, $pipe) or die "$pipe: $!";
+
+while (<IN>) {
+	s/^.* \d\d:\d\d:\d\d (\w+) (.*)$/$2/;
+	my $host = $1;
+	print;
+	chomp;
+	sendmsg($target, $mc,
+	    "([_nick_host]) [_system_event]", {
+		_system_event => $_, _nick_host => $host
+	} );
+}
+
+close IN;
+
+# we indeed get here when syslog gets restarted.
+# should we sleep and try again?
+

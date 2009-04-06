@@ -1,0 +1,69 @@
+#!/usr/bin/perl -I/ve/perlpsyc/lib/perl5
+#
+# listen for PSYC packets and dump them
+
+require 'getopt.pl';
+&Getopt('bt');
+
+use Net::PSYC qw( :event );
+
+				# make the library sweat a little
+bind_uniform( $opt_b || "psyc://$ENV{USER}\@127.0.0.1:2244/\$$0" );
+register_uniform();
+
+my $trg = $opt_t || "psyc://127.0.0.1/~$ENV{USER}";
+
+print "\nsending request to $trg ... ";
+sendmsg( $trg, "_request_authentication", "I would like to be you.",
+	 { _host_ip => '127.0.0.1' } );
+
+sub type {
+    my $bla = <STDIN>;
+    print <<X;
+you typed: $bla
+bye.
+X
+    exit;
+}
+
+# shows how to do add own fds into the select-wrapper
+add(\*STDIN, 'r', \&type);
+
+sub msg {
+    my ($source, $mc, $data, $vars) = @_;
+
+    if ($vars) {
+	    print <<X;
+
+variables:
+X
+	    foreach $i (keys %$vars) {
+		    print "\t$i $vars->{$i}\n";
+	    }
+    }
+    if ($data) {
+	    if (length($data) < 200) {
+		    print <<X;
+==============================================================================
+$data
+==============================================================================
+X
+	    } elsif (open(O, ">dump")) {
+		    print O $data;
+		    close O;
+		    print "\n", length($data), <<X;
+ bytes of data stored in a file called 'dump'
+X
+	    } else {
+		    print STDERR <<X;
+could not save data in a file called 'dump': $!
+X
+	    }
+    }
+    print "\nlistening... ";
+}
+
+$|=1;
+print "\nlistening... ";
+
+start_loop();

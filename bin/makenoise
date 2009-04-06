@@ -1,0 +1,621 @@
+#!/usr/bin/perl
+#
+# makenoise is the predecessor of psycmp3 for scripting the
+# operation of playing music files. in other words, yet another 
+# console mp3 player.
+#
+# written by lynX@noIsy.pAges.dE
+#
+# this script has NOTHING to do with PSYC..
+# it just has a few features that psycmp3 doesn't have yet, see psycmp3
+#
+# .. rand() makes my perl interpreter segfault every now and then.. *shrug*
+# 19990417 trying to improve -r
+# 20010625 temp hack for oss
+
+if ($#ARGV >= 0) {
+	require 'getopt.pl';
+	&Getopt;
+	# $flags = shift if $ARGV[0] =~ /^\-/;
+	# $DEBUG = $flags =~ /d/;
+	$DEBUG = $opt_d;
+} else {
+	$opt_M = 1;
+}
+
+# if ($flags =~ /h/) { print <<X; exit; }
+if ($opt_h) { print <<X; exit; }
+# makenoise - ultimate music steering gadget
+#
+# Flags:
+#	-M	sort by mark and randomizer		<-- best algorhythm
+#	-m	sort by mark only
+#	-R	sort by rand and mark
+#	-r	random shuffle
+#	-S	sort by size (biggest songs first)
+#	-s	sort by size (smallest songs first)
+#	-f	use order given by command line and filesystem
+#	-F	shuffle the order given by command line slightly
+#				<-- best algorhythm if you don't have marks
+#	-N	sort by file name with slight shuffle
+#		default is to sort by file names
+#
+#	-d	debug
+#	-c	cache /cdrom files into /tmp
+#	-x	exec mpg123 -@ after creating playlist
+#	-e	edit playlist before starting (TBD)
+#
+# Format of .makenoiserc:
+#  <path>/<filename> [<opts>]		<volume_in_%>	<mark>
+X
+
+# default settings
+#
+$wavplay='wavplay -q';
+$wavplay='mplayer -really-quiet';
+# $mp2play='mpg123 --aggressive'; # --remain -b 19999';	# -b 777
+$mp2play='mplayer -really-quiet';
+$oggplay='mplayer -really-quiet';
+# $mp2play='xaudio';
+$mp3play=$mp2play;
+$tracker='tracker -tolerant -oversample 4';
+# i hope you may never need this
+#$reinit ='soundoff;soundon;clear';
+
+# per architecture settings
+#
+if ($ENV{HOSTTYPE} =~ /linux/) {
+	# $tracker='tracker2 -tolerant -oversample 4';
+#	$mp3play='xaudio';
+#	$mp2play=$mp3play;
+	$setvol = \&camsetvol;
+} else {
+	# Solaris
+	#
+	$mp3play='xaudio -port=line -port=headphone';
+	$wavplay='wavplay';
+
+	# klappt nich:
+	# $setvol= $ENV{'HOSTTYPE'} eq 'solaris' ? 'audioplay -Vv' : 'play -v';
+	# system "$setvol $vol[$i] sounds/fx/st_com.au" || die $!;
+}
+$defdir='/F/Share';
+$defdir='/usr/depot/media' unless -d $defdir;
+$defdir='/usr/local/media' unless -d $defdir;
+
+# $tmpdir='/T/mp3';
+$tmpdir='/fat/windows/temp';
+$tmpdir='/tmp' unless -d $tmpdir and -w _;
+$tmplock="$tmpdir/.makenoise-copylock";
+$tmplist="$tmpdir/makenoise-$ENV{USER}.m3u";
+
+sub docache {
+	my $path = shift;
+	return $path =~ m!^/cdrom!;
+}
+
+# END OF CONFIG AREA
+
+system $reinit if $reinit;
+
+# nlink suxx on almost every architecture
+$File::Find::dont_use_nlink = 'DONT!';
+
+# enable realtime output
+$| = 1;
+
+$rcfile='.makenoiserc';
+$FILETYPES = "(wav|au|mp\\d|ogg|sea|mod|gz|lha|Z|lzh|zip|s3m)"; # |med|mmd0)";
+
+if (open(I, "$ENV{HOME}/.words/sea")) {
+	my $WORD;
+
+	# enable sea support
+	chomp ($WORD = <I>);
+	close I;
+
+	# system "rm -f $dtmp $rtmp $ptmp";
+	$decode = "des -d -k $WORD";
+}
+
+if (defined &docache) {
+	$PWD = `pwd`;
+	chomp $PWD;
+	$cacherel = &docache($PWD);
+}
+
+print <<X;
+
+makenoise 3.0 (profiling, recursion, decryption)
+by the symbolic LynX
+
+known filetypes: $FILETYPES
+
+X
+
+@index = ();
+system "rm -f $tmplock $tmpdir/Cache#* $tmpdir/Decoded#*";
+
+sub wanted {
+	# ($dev,$ino,$mode,$nlink,$uid,$gid) = lstat($_);
+
+	if (-f $_ && -r _ && -s _ > 9999 && /.\.$FILETYPES$/io ) {
+		$file[++$i] = $name;
+		$size[$i] = -s _;
+		&progress('yes: ', $name);
+	} elsif ( -d _ && -e "$_/.prune" ) {
+		$prune = 1;
+		&progress('pruned: ', $name);
+		print "\n";
+	} elsif ( $decode && -f _ && /\bindex\.etx$/i ) {
+		open(I, "$decode <$_ |")
+		  and @index = (@index, <I>) and close I;
+		&progress('inf: ', $name);
+	} else {
+		&progress('no : ', $name) if -f _;
+	}
+}
+
+if ($#ARGV >= 0) {
+	if ($#ARGV == 0 && -T $ARGV[0]) {
+		$rcfile = $ARGV[0];
+	} else {
+		$i = 0;
+		for $_ (@ARGV) {
+			if (-d $_ && -x _ && -r _) {
+				require 'finddepth.pl';
+#print "\n[finddepth: $_]\n" if $DEBUG;
+				&finddepth($_);
+				next;	# $_ is corrupted after finddepth
+			}
+			$name = $_;
+#print "\n[file wanted: $_]\n" if $DEBUG;
+			&wanted;
+		}
+		&progress($i, ' songs found');
+		print "\n";
+		exit unless $i;
+		goto START;
+	}
+}
+
+if (! -r $rcfile) {	# if no rc file here
+	chdir;		# then check out $HOME
+			# go to the defdir if there's none here aswell
+	chdir $defdir if ! -r $rcfile;
+}
+open(RC, $rcfile) || die "Cannot find $rcfile";
+$i=1; while(<RC>) {
+	next if /^#/;	# skip comments
+			# parse the 3 basic strings
+	#ext if ! /^([^\t]+)\t+(\d+)\t(\d+)\t?(\d?) ?(\d?)/o;
+	/^([^\t]+)\t+(\d+)\t(\d+)\t?(\d?) ?(\d?)/ or next;
+
+	($file[$i],$vol[$i],$mark[$i],$mix[$i],$repeat[$i]) = ($1,$2,$3,$4,$5);
+
+			# extract options from $file
+	($file[$i],$opts[$i]) = ($1,$2)
+		if $file[$i] =~ /^(\S+) (.*)$/;
+
+	$size[$i] = -s $file[$i];
+#print "$i ($size[$i]) $file[$i] $opts[$i] $vol[$i] $mark[$i] $mix[$i]\n";
+	$i++ if $size[$i] > 150;
+}
+$i--;
+
+print "Information for $i songs loaded from $rcfile\n";
+
+START:
+
+			# setup the randomizer to some (in)sane value
+#$a = time() ^ $$; srand($a);
+$a = time() ^ $$; $a = reverse $a; srand($a);
+#print "srand($a)\n";
+
+# many ways to sort the songs
+#
+sub by_name { $file[$a] cmp $file[$b]; }
+sub by_rand { rand(10) < 5; }
+#
+# works only with .makenoiserc
+sub by_mark { $mark[$a] <=> $mark[$b] || $file[$a] cmp $file[$b]; }
+#
+# let the randomizer have some influence on the order implied
+# by the marks. this is the coolest sort mode available.
+sub by_mark_and_rand {
+	($mark[$a]-$mark[$b] < 1) && ($mark[$a]-$mark[$b] > -1) ?
+		&by_rand : &by_mark; 
+}
+# less useful, since shuffle is too dominant
+sub by_rand_and_mark {
+	($mark[$a]-$mark[$b] < 4) && ($mark[$a]-$mark[$b] > -1) ?
+		&by_rand : &by_mark; 
+}
+# gives an order by name a slight shuffle
+sub by_name_and_rand { rand(9) > 3 ? &by_name : &by_rand; }
+#
+# coolest mode if you have not prepared any marks. this will
+# take the order you give on the command line and shuffle it
+# just a little bit to avoid it sounding the same each time
+# still if you care to hear something mostly first, you will
+sub by_number_and_rand { rand(9) > 3 ? $a <=> $b : &by_rand; }
+#
+# longest or shortest songs first.. this is an interesting
+# approach to listening to music, it either brings the most
+# epic or most silly pieces together..    :-)
+sub by_size { $size[$a] <=> $size[$b]; }
+
+# weird perl bug makes this loop necessary...
+do {
+	# $_ = $flags;
+	@order = sort by_mark_and_rand 1 .. $i if $opt_M;
+	@order = sort by_name_and_rand 1 .. $i if $opt_N;
+	@order = sort by_rand_and_mark 1 .. $i if $opt_R;
+	@order = sort by_mark 1 .. $i if $opt_m;
+ 	@order = sort by_size 1 .. $i if $opt_s;
+ 	@order = reverse sort by_size 1 .. $i if $opt_S;
+	@order = 1 .. $i if $opt_f;			# "by filesystem"
+ 	@order = sort by_number_and_rand 1 .. $i if $opt_F;
+
+	# this gives lousy results:
+ 	#	@order = sort by_rand 1 .. $i if $opt_r;
+	if ($opt_r) {
+		my @tmp = 1 .. $i;
+		@order = ();
+		my $lr = -99;
+		for $j (1 .. $i) {
+			my $r = int(rand($#tmp));
+			my $ir = $tmp[$r];
+
+			# this tries to avoid items being too near
+			# even if randomizer suggests so -
+			# in particular try not to play the same artist
+			# in a row, that's why we look at the filename
+			if ($#tmp>7 and abs($lr-$ir)<23 and
+			   substr($file[$lr],0,12) eq substr($file[$ir],0,12)) {
+
+				print STDERR <<X if $DEBUG;
+last=$lr\t[$file[$lr]]
+near=$ir\t[$file[$ir]] ($r)
+X
+				$r = int(rand($#tmp));
+				$ir = $tmp[$r];
+				if (substr($file[$lr],0,9) eq
+				    substr($file[$ir],0,9)) {
+					print STDERR <<X if $DEBUG;
+\t\t(one retry)
+X
+					$r = int(rand($#tmp));
+					$ir = $tmp[$r];
+				}
+				print STDERR <<X if $DEBUG;
+new =$ir\t[$file[$ir]] ($r)
+
+X
+			}
+			$lr = splice @tmp, $r, 1;
+			push @order, $lr;
+		}
+	}
+	@order = sort by_name 1 .. $i unless @order;
+	print "\r[order] @order\n" if $DEBUG;
+
+	# another weird bug!!
+	foreach $j (@order) {
+		undef @order unless $j;
+	}
+} until (@order && $order[0]);
+
+$SIG{INT} = \&sigINT;	# handle ctrl-c
+print "\n";
+
+if ($opt_x or not fork) {
+	umask 077;
+	if (open(L, ">$tmplist")) {
+		print "\rSaving playlist into $tmplist\n\n";
+		my $j;
+		foreach $j (@order) {
+			#rintf STDERR "%4d: %d %s\n", $j, $mark[$j], $file[$j];
+			print L $file[$j], "\n";
+		}
+		close L;
+		# exec "xaudio -input=m3u $tmplist" if $opt_x;
+#		exec "xaudio `cat $tmplist`" if $opt_x;
+		# exec "freeamp `cat $tmplist`" if $opt_x;
+		exec "mpg123 --remain --aggressive -@ $tmplist" if $opt_x;
+		exit;
+	}
+}
+
+for ($I=0; $I <= $#order; $I++) {
+	$i = $order[$I];
+	$f = $file[$i];
+
+	#next unless -r $f;
+#print "\r[checked existence of $f]\n" if $DEBUG;
+	&prepare($f, 0) if $I == 0;
+
+print "\r[$rtmp to become $rtmp2]\n" if $DEBUG and $rtmp2;
+	$rtmp = $rtmp2 if $rtmp2;
+	$ptmp = $ptmp2 if $ptmp2;
+
+	if ($I < $#order) {
+		&prepare($file[$order[$I+1]], 1);
+	} else {
+		&status('Thank you for flying makenoise');
+	}
+			# seperate into path and filename
+	if ($f =~ m!(.*/)([^/]+)$!o) {
+		($path,$file) = ($1,$2);
+	} else {
+		$path = '';
+		$file = $f;
+	}
+			# show size (sort-of song collection debugging)
+	$size = $size[$i];
+	$size = -s $f unless $size;
+print "\r[checked size]\n" if $DEBUG;
+
+	$repeat = $repeat[$i] ? $repeat[$i] : 1;
+	print "* $i:\t$size ", $mark[$i] ? "($mark[$i])" : '', $repeat[$i], " ";
+	&$setvol($vol[$i]) if defined &$setvol;
+			# is it a sample?
+	$ext = "\L$1\E" if $file =~ /\.(\w+)$/o;
+
+#print "\r[is '$rtmp' there?]\n" if $DEBUG;
+	if ($rtmp and -r $rtmp) {
+		$cooked = 1;
+		rename($rtmp, $ptmp);
+print "\r[renamed tmp file]\n" if $DEBUG;
+		$f = $ptmp;
+		$ext = "\L$1\E" if $ptmp =~ /\.(\w+)$/o;
+	} else {
+		$cooked = 0;
+	}
+
+	$f =~ s:`:\\`:g;
+print "\r[ext is $ext]\n" if $DEBUG;
+	if ($ext eq "au") {						## uLAW
+		print "$path$file \n";
+		#system("$auplay $vol[$i] $f");
+		system("cat".(" $f" x $repeat).">/dev/audio");
+	} elsif ($ext eq "mp3" || $file =~ /\.mp3\.wav$/i) {		## MP3
+		# no $repeat support here
+		print $mp3play !~ /mpg123/ ? "$path$file \n" : "\n";
+		$o = $vol[$i] ? "-volume=$vol[$i]" : '';
+print "\r[launching mp3 player for $f]\n" if $DEBUG;
+		system("$mp3play $o \"$f\"");
+print "\r[done $mp3play]\n" if $DEBUG;
+		# l3dec: system("$mp3play $f 2>/dev/null");
+	} elsif ($ext eq "sea") {					## SEA
+		# gets called only when ^c is hit too fast
+		#print "$path$file skipped..\n";
+		$o = $vol[$i] ? "-volume=$vol[$i]" : '';
+		#sleep 1 until -r $rtmp;
+		sleep 3 unless -r $rtmp;
+		rename($rtmp, $ptmp);
+		system("$mp3play $o \"$ptmp\"");
+		unlink $rtmp, $ptmp;
+	# } elsif ($file =~ /\.mp\d/) {
+	} elsif ($ext =~ /mp\d/) {					## MP2
+		# no $repeat support here
+		print $mp2play !~ /mpg123/ ? "$path$file \n" : "\n";
+		$o = $vol[$i] ? "-g=$vol[$i]" : '';
+		system("$mp2play $o \"$f\"");
+	} elsif ($ext eq "wav") {					## WAV
+		print "$path$file ...\n";
+		system("$wavplay \"$f\"");
+	} elsif ($ext =~ /ogg/) {					## MP2
+		print "$path$file ...\n";
+		system("$oggplay \"$f\"");
+	} else {
+	    # if ($ext =~ /^(mod|gz|lha|Z|lzh|zip|s3m|med|mmd0)$/o) {	## MOD
+		print $path;
+		print "$path$file \n" if $tracker !~ /tracker/;
+			# fix up the options to the tracker
+		$o = $vol[$i] ? "-g=$vol[$i]" : '';
+		$o = "-mix ".($mix[$i] ? $mix[$i] : "5")."0";
+		$o .= " $opts[$i]" if $opts[$i];
+		system("$tracker $o".(" $f" x $repeat));
+	}
+	unlink $ptmp if $ptmp and -r $ptmp;
+#print "\r[removed $ptmp]\n" if $DEBUG;
+	system $reinit if $reinit;
+}
+
+sub insea {
+	my $s = shift;
+	my @info = grep( /^$1\s/, @index ) if $s =~ m!([^/]+?)\.sea$!i;
+print "\r[info] ", @info if $DEBUG;
+	my $t;
+	my ($radix, $sz, $long)
+	 = ( @info[0] =~ /^(\S+)\s+(\d+)\s+(\S.*\S)\s*$/ );
+
+	if ( $long =~ /\b(\w+\.\w+)\s*$/ ) {
+		$t = $1;
+	} else {
+		$t = $s;
+		$t =~ s/\.sea$/\.mp3/i;
+		$t =~ y!/!_!;
+	}
+	$rtmp2 = "$tmpdir/Decoded#Wait# $t";
+	$ptmp2 = "$tmpdir/Decoded# $t";
+
+	&status('(decoding next: ', $long ? $long : $t, ')');
+}
+sub desea {
+	my $s = shift;
+	system("$decode <'$s' >'$rtmp2'");
+	print STDERR <<X;
+\r(done decoding $s)
+X
+}
+
+sub progress {
+	my $tx = join('', @_);
+	my $len = length $tx;
+	print STDERR $tx, ' ', '=' x (77-$len), "\r" if $len < 77;
+	print STDERR "\n" if $DEBUG;
+}
+
+sub status {
+	my $tx = join('', @_);
+#	print STDERR # $ENV{TERM} =~ /xt/ ? "\033]0;$tx\007" :
+#		"\033\067\033[H \033[7m $tx \033[m\033\068";
+	my $t = 78 - length($tx);
+	$t = 0 if $t < 0;
+	print STDERR "\r", '-' x $t, ' ', $tx, "\n";
+}
+
+sub camsetvol {
+	local($v, $nv) = @_;
+	return unless $v;
+
+	$nv = $v / 4;
+	$nv = int($nv) + 10;
+
+	$nv = 20 if $nv > 20;
+	print " ($v -> $nv) ";
+	system "cam -v $nv,$nv";
+}
+
+sub softcopy {
+	my ($from, $to) = @_;
+	open(I, $from) or print STDERR "\rsoftcopy from $from: $!\n";
+	open(O, ">$to") or print STDERR  "\rsoftcopy to $to: $!\n";
+	if ($forked) {
+		setpriority 0,0,19;
+		sleep 1;
+	}
+	print "\r[copying]\n" if $DEBUG;
+
+	my $c=0, $d=0, $limit = -33333;
+	while (<I>) {
+		# we should only do this when we're copying from cdrom while
+		# the foreground music is also on cdrom..
+		#
+		if ($forked) {			# was: unless cooked
+			$c -= length $_;
+			if ($c < $limit) {
+				sleep 1;
+				$d++ if $d < 7;
+				$c= -$c * $d;	# okay its weird, but its fun
+print "\r[softcopy factor $d for $c bytes]\n" if $DEBUG;
+			}
+		}
+		print O;
+	}
+	close I; close O;
+}
+
+sub touch {
+	my $fn = shift;
+	open (O, ">$fn") or die "$fn: $!";
+	print O "makenoise $$ woz'ere";
+	close O;
+}
+
+sub sigINT {
+	exit unless $forked;
+	if ($intcount++ == 0) {			# one more chance!
+		$SIG{INT} = \&sigINT;		# re-handle ctrl-c
+		return;
+	}
+	&unlock;
+	exit;
+}
+
+sub lock {
+	print "\r[forked]\n" if $DEBUG;
+	sleep 4;	# let the music start
+	sleep 2 while -r $tmplock;
+	$forked = 1;	# activate interrupt handler
+	&touch($tmplock);
+}
+
+sub unlock {
+	unlink $tmplock;
+	# print "\r[unlocked]\n" if $DEBUG;
+}
+
+sub prepare {
+	my $f = my $f2 = shift;
+	my $dofork = shift;
+	my $t = $f;
+	$t = $1 if $f =~ m!/([^/]+)$!;
+
+	# return unless -r $f;
+	if ($f =~ /\.sea$/i) {
+		&insea($f);			# set up nice names
+		unless ($dofork and fork) {
+			&lock if $dofork;
+			&desea($f);		# decrypt next song
+			return unless $dofork;
+			&unlock;
+			exit;			# enough parallel work
+		}
+#print "\r[rtmp2 is $rtmp2]\n" if $DEBUG;
+	} elsif ($opt_c and defined &docache) {
+		if (-l $f) {
+			$f = readlink $f;
+			# print "link points to $f!\n";
+		}
+		# $t and ..
+		if ( ($cacherel and $f !~ m!^/!) or &docache($f) ) {
+			my $t2 = &stylename($t);
+			$rtmp2 = "$tmpdir/Cache#Wait# $t2";
+			$ptmp2 = "$tmpdir/Cache# $t2";
+
+			if (0) {
+				&lock; # if $dofork;
+				system("( sleep 3;" .
+					" nice -n 19 cp '$f' '$rtmp2';" .
+					" echo '\r(ready: $f2)';" .
+					" rm $tmplock )&");
+				# incorrect but better then no locking
+				#&unlock;
+			}# else {
+			unless ($dofork and fork) {
+				&lock if $dofork;
+				#system("nice cp '$f' '$rtmp2'");
+				&softcopy($f, $rtmp2);
+				print "\r(", ($intcount or not $dofork) ?
+					'this' : 'next', ": $f2)\n";
+				return unless $dofork;
+				&unlock;
+				# &status('(next: ', $t, ')') if $t;
+				# &status('(ready)') if $t;
+				exit;
+			}
+		} # else {
+		&status('(next: ', $t, ')') if $t;
+		# }
+	}
+}
+
+sub stylename {
+	$_ = shift;
+
+	my $xt = ''; s/(\.\w+)$// and $xt = $1;
+
+	# laaptinek syntax
+	s/^\[//;
+	# s/\]\s(\w)/-\L\1\E/;
+
+	s/([\.,\!\s_])(\w)/\U\2\E/g;
+	s/[\.,\!\s_]//g;
+	# numbering at beginning
+	s/^\W?(\d\d)\W?\s*(\w)/\1_\l\2/;
+
+	s/^(\w)/\U\1\E/ if /\-/;
+	y/\(\]/-/;
+	y/\&/+/;
+	s/-(\w)/-\L\1\E/;
+	s/[\)`'´]//g;
+
+	$_ .= $xt;
+
+	return $_;
+}
+
+1;

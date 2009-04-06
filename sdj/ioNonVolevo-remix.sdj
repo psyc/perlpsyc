@@ -1,0 +1,32 @@
+# from the new acid jazz album of Mina & Adriano Celentano
+# "io non volevo" edited by the symLynX
+
+duration 4:10
+open ioNonVolevo.mp3
+jump .9
+play
+volume 100
+
+sleep 3.6
+#skip IT
+
+jump .2
+sleep .5
+jump .2
+sleep 64.3
+:IT
+
+jump .2
+sleep .5
+jump .2
+sleep .5
+jump .2
+#jump 83.8
+sleep .5
+jump .2
+sleep 10.3
+
+jump 2:28.3
+sleep 75
+
+# leave near to the end when its okay to fade

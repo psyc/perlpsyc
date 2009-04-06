@@ -1,0 +1,368 @@
+#!/usr/bin/perl -I../lib/perlxt/ -I/usr/depot/lib/perlxt
+
+use strict;
+# use Getopt::Long
+#  for several reasons... flexibility, beauty, brass balls 
+use Getopt::Std;
+use Time::HiRes;
+
+my (%params, %key2hex);
+our $VERSION = '0.5';
+our $client;
+
+sub VERSION_MESSAGE {
+    print "This is psycion v$VERSION using Net::PSYC v$Net::PSYC::VERSION\n";
+}
+
+sub HELP_MESSAGE {
+print <<X;
+Usage: psycion [--help] [-c configfile] [-l UNI] [-w password] [-s]
+
+ -l UNI	link to the UNI
+ -d N	Use debugging level N for Net::PSYC. Both 1 and 2 are insane
+	values. All output is written to STDERR.
+ -D N	Use debugging level N for Net::PSYC. Output is written to
+	psycion's status window.
+ -s	dont use color codes
+ -m	start in multi-window mode. ( requires Curses )
+
+ --help	
+ -h	display this message
+
+X
+}
+
+BEGIN {
+    $VERSION = '0.5';
+    require Net::PSYC;
+    $Getopt::Std::STANDARD_HELP_VERSION = 1;
+    getopts('l:w:c:smvhd:', \%params);
+    unless (eval {require Curses}) {
+    die <<X;
+The current version of psycion requires the perl modules 'Curses'.
+X
+    }
+    if ($params{'v'}) {
+	VERSION_MESSAGE();
+	exit;
+    } elsif ($params{'h'}) {
+	HELP_MESSAGE();
+	exit;
+    }
+    import Net::PSYC qw(:event W :ssl);
+}
+use Net::PSYC::Client qw(sendmsg msg);
+use Net::PSYC::Storage qw();
+use PSYCion::Main;
+
+
+Net::PSYC::setDEBUG(int($params{'d'})) if $params{'d'};
+
+sub getPassword {
+    my $w = $params{'w'} 
+	||  Net::PSYC::Storage::pass($params{'l'} || Net::PSYC::Storage::UNI());
+    # this could prompt the user for login data instead,
+    # then store it into the appropriate ~/.psyc files
+    # and execute the /register with the psyc server.. TODO
+    unless ($w) {
+	my $c;
+	print "Neither you have a password in ~/.psyc/auth nor did you specify it with -w.\n\rPassword: ";
+	system("stty raw -echo");
+	$w = '';
+	while (($c = getc(STDIN)) && $c ne "\n" && $c ne "\r") {
+	    print '*';
+	    $w .= $c;
+	}
+	system("stty -raw echo");
+    }
+    unless ($w) {
+	W("Warning: Have no password to identify you with!");
+    }
+    return $w;
+}
+
+$SIG{'WINCH'} = \&sig_resize;
+# i hate hate hate hate that. why dont you perl people have the proper
+# defines ready to use? i cannot ask the user to run h2ph for himself.
+BEGIN {
+    unless (defined(eval {require "asm/ioctls.ph"})) {
+# even 'h2ph /usr/include/asm-generic/*' doesn't fix the funny include
+# login in current gentoo perl.. i'll comment this out since your workaround
+# does the job most of the time. hopefully this will be fixed in future gentoo.
+#
+#	W0("You should check if your perl installation got the creation of the .ph files wrong. Do a 'h2ph /usr/include/asm/ioctls.h' some time soon.");
+	defined(eval 'sub TIOCGWINSZ () {0x5413;}; return 1;') or die "help! ask el.. this is not okay at ALL\n";
+    }
+}
+
+sub sig_resize {
+    my $size;
+    my ($rows, $cols);
+    # ENV may be the cheaper variant. 
+    # the iocl() version is most likely not working for SCO UNIX. TODO
+    # 	References: ncurses/tinfo/lib_setup.c
+    if (exists $ENV{'LINES'} && exists $ENV{'COLUMNS'} && 0 <= $ENV{'LINES'} && 0 <= $ENV{'COLUMNS'}) {
+	($rows, $cols) = ($ENV{'LINES'}, $ENV{'COLUMNS'}); 
+    } elsif (ioctl(STDERR, TIOCGWINSZ(), $size)) {
+	($rows, $cols) = unpack("S2", $size);
+    } else {
+	# any ideas?? use 80x24 as fallback ??
+	($rows, $cols) = (24, 80);
+    }
+    resize($rows, $cols);
+}
+
+$params{'w'} = getPassword() unless (exists $params{'w'});
+
+#init
+my $config = ($params{'c'} && -e $params{'c'}) ? $params{'c'} :
+     (-e $ENV{'PSYCIONLIB'}.'/basic.ion') ? $ENV{'PSYCIONLIB'}.'/basic.ion' :
+     (-e $ENV{'PSYCLIB'}.'/ion/basic.ion') ? $ENV{'PSYCLIB'}.'/ion/basic.ion' :
+     (-e '/etc/psyc/ion/basic.ion') ? '/etc/psyc/ion/basic.ion' :
+     (-e '/usr/local/lib/psyc/ion/basic.ion') 
+	? '/usr/local/lib/psyc/ion/basic.ion'
+	: die <<X;
+Cannot find my bootstrap script called basic.ion\r
+Please set \$PSYCIONLIB to point into its directory.\r
+I could ask locate myself, but you probably wouldn't want me to.\r
+X
+
+if ($params{'m'}) {
+    require PSYCion::MultiScreen;
+    *resize = *PSYCion::MultiScreen::resize;
+    PSYCion::MultiScreen::new(
+	'uni' => $params{'l'} || Net::PSYC::Storage::UNI(),
+	'password' => $params{'w'} || undef,
+	'config' => $config,
+    );
+} else {
+    require PSYCion::SingleScreen;
+    *resize = *PSYCion::SingleScreen::resize;
+    PSYCion::SingleScreen::new( 
+	'uni' => $params{'l'} || Net::PSYC::Storage::UNI(),
+	'password' => $params{'w'} || undef,
+	'config' => $config,
+    ); 
+}
+
+if ($params{'s'}) {
+    $PSYCion::Main::no_color = 1;        
+}
+
+sig_resize(); # set the window-size correctly
+start_loop();
+
+if ($params{'m'}) {
+    PSYCion::MultiScreen::end();
+} else {
+    PSYCion::SingleScreen::end()
+}
+
+
+1;
+
+=head1 NAME
+
+psycion - a console PSYC client
+
+=head1 SYNOPSIS
+
+Usage: psycion [--help] [-c configfile] [-l UNI] [-w password] [-s]
+
+ -l UNI	link to the UNI
+ -d N	Use debugging level N for Net::PSYC. Both 1 and 2 are insane
+	values. All output is written to STDERR.
+ -D N	Use debugging level N for Net::PSYC. Output is written to
+	psycion's status window.
+ -s	dont use color codes
+ -m	start in multi-window mode. ( requires Curses )
+
+ --help	
+ -h	display this message
+
+
+=head1 COMMANDS
+
+Commands may be used to control almost every aspect of psycions behaviour. Even cursor movement. Commands may be bound to keys or typed into the prompt. Obviously typing them does not make sense for some of the commands. When typing, commands have to be preceded with a '/'. For how to use commands in key bindings, look at the L<CONFIGURATION> section below.
+
+=head2 mode ( <mode> )
+
+Activate the mode <mode>. <mode> may be an arbitrary character string. Modes are used to implement complex command sets. Read the documentation about Key Bindings for more information.
+
+=head2 say ( <text> ) 
+
+Say <text> in the current room/private chat.
+
+=head2 join ( <room> )
+
+Join a <room>.
+
+=head2 leave
+
+Leave the current room.
+
+=head2 shutdown
+
+Try to logout of your PSYC server. This fails if the connection got lost.
+
+=head2 forward-window
+
+Switch to the next window.
+
+=head2 backward-window
+
+Switch to the previous window.
+
+=head2 clear-screen
+
+Clear the current window. Removes all messages.
+
+=head2 scroll-up
+
+=head2 scroll-down
+
+=head2 kill-whole-line 
+
+=head2 end-of-line 
+
+=head2 beginning-of-line 
+
+=head2 backward-char 
+
+=head2 forward-char 
+
+=head2 delete-char 
+
+=head2 kill-line 
+
+=head2 down-history 
+
+=head2 up-history 
+
+=head2 remove
+
+=head2 reply
+
+STATUS
+
+=head2 drop
+
+=head2 save
+
+=head1 CONFIGURATION
+
+The behaviour of psycion is defined by configuration files. There is no default configuration I<inside> the source code, but rather a set of configuration files that should give one a reasonable good start. From there on its up to you to adapt the configuration to your needs.
+
+=head2 Color Settings
+
+There are different ways to change the colors in which your chat-content is displayed. The first is to set a color for a message class, the second to change the color for a certain variable I<inside> a message. The third and last way is to change the color in which a character string matching a pattern is displayed.   
+
+In PSYC every message belongs to a message class. A message typed by a user, for instance, has the message class '_message' or a subclass derived from that, such as '_message_public' (a public message in a room). If you set a certain color for a message class it will be used for every subclass aswell, unless there is a color definition for that subclass. 
+
+Examples of color definitions for message classes:
+
+    mark method _message_public     white
+    mark method _message_private    red bold 
+    mark method _message_public_question     yellow
+    mark method _error              red on_white
+
+The same rules of how classes and subclasses are treated ( keyword inheritance ) applies to variables aswell. 
+
+Examples of color definitions for variable classes:
+
+    mark variable _nick		bold white
+    mark variable _nick_alias	blue
+    mark variable _nick_place	white on_red
+    mark variable _action	green
+
+Color definitions for arbitrary character strings use Perl Regular Expressions. In case you are not familiar with Regular Expressions, look at Perl's documentation on that. 
+
+Examples:
+    
+    mark ignorecase	theboss		red bold
+    # match 'theboss' case-insensitive
+    mark case		TheBoss		blue
+    # match 'TheBoss' case-sensitive
+    mark case		\d+		yellow
+    # match any digit character and show it in yellow
+    mark case		_\w+		red on_white
+    # match psyc keywords and display them as red text on white background
+
+=head2 Key Bindings
+
+All commands ( have a look at the L<COMMANDS> section above ) may be bound to keys. The general syntax is:
+
+    bind <key>	command
+    bind <key>	command(arg1, arg2, ..)
+    bind <mode>::<key>	command
+    bind <mode>::<key>	command(arg1, arg2, ..)
+
+Modes may be used to implement a different set of commands. Have a look at the example of the mode below for scrolling windows. When <mode> is active <key> is bound to command(). Modes can be activated by mode(<mode>).
+
+Examples:
+    
+    bind <C-o>	say("Oink!")
+    # Say Oink! on hitting control-o inside the current window ( either 
+    # a room or a private chat )
+    bind <^o>	say("Oink!")
+    # the same
+
+    bind <C-O>	join("pentagon")
+    # join the room pentagon when hitting control-shift-o
+
+    bind <alt-shift-n>	next-window
+    # change to the next window when hitting alt-shift-n 
+
+    # scrolling mode
+    # activate the SCROLL mode
+    bind	<c-w>	mode(SCROLL)
+    bind	SCROLL::<Left>	forward-window
+    bind	SCROLL::<Right>	backward-window
+    # deactivate the SCROLL mode
+    bind	SCROLL::<esc>	mode
+    # maybe it's a good IDEA if ESC is always mapped to leave any mode
+    # at least by default ...?
+
+=head2 Templates
+
+It is possible to define templates for message classes. 
+
+These examples should give a decent insight:
+    
+    template	_notice_place_enter	[_nick] walks into [_nick_place] and bows to the audience.
+    template	_message_private	[_nick] tells you: [_data]
+    template	_message_echo_private	You tell [_nick_target]: [_data]
+
+=head2 Instructions
+
+    load <file>
+
+load a configuration file. You may use this to split up your configuration into different files. <file> may either be a full path ( preceded by a dash ) or a relative path ( relative to the configuration file it is to be included into ).   
+
+    complete <word>
+
+Add <word> to the list of words used in auto-completion. Have a look at complete() in the L<COMMANDS> section above.
+
+    alias <alias> <command>
+
+Add <alias> as an alias for <command>. These aliases will work in the prompt only.
+
+Examples:
+
+    alias j	join
+    alias r	reply
+ 
+
+=head1 AUTHOR
+
+psycion has been written by Arne Goedeke, with contributions from Carlo v. Loesch and Tobias Josefowitz and many inspirations by those two.
+
+=head1 COPYRIGHT AND DISCLAIMER
+
+This program is Copyright 2003-2006 by Arne Goedeke. This program is free software; you can redistribute it and/or modify it under the terms of the Perl Artistic License or the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.
+        
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more detail.
+    
+If you do not have a copy of the GNU General Public License write to the Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+=cut

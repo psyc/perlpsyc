@@ -1,0 +1,1090 @@
+#!/usr/bin/perl -I/usr/local/lib/perlxt -I/usr/depot/lib/perlxt
+# -w
+#
+sub head { return <<X; }
+=============================================================================
+PSYC mp3 console 3.0			by the symbolic lynx\@psycmp3.pages.de
+-----------------------------------------------------------------------------
+X
+# command line front-end to rxaudio with PSYC remote control support
+#
+# this mp3 is over a decade old, but it still is my mp3 player of choice
+# i gave it functions i wouldn't have in any other.. hmmm
+#
+# requires the 'rxaudio' server engine from http://www.mpeg.org/xaudio/
+# actually.. it doesn't exist anymore. there are some binaries around.
+#
+# and furthermore it requires the Net/PSYC.pm
+# module since it uses its event multiplexing
+# abilities not just to receive PSYC messages,
+# but also to handle stdin and rxaudio input in parallel.
+#
+# i'd like to upgrade this to something that can handle ALSA or even JACK,
+# and knows how to play any of ogg, mp2, mp3, au, aiff, wav. Not talking
+# of .mid and tracker formats. some links:
+#	http://search.cpan.org/~tsch/GStreamer-0.09/GStreamer.pm
+#	http://search.cpan.org/~gbrown/Gtk2-Ex-MPlayerEmbed-0.02/lib/Gtk2/Ex/MPlayerEmbed.pm
+#	http://search.cpan.org/~stephen/Video-Xine-0.02/lib/Video/Xine.pm
+#	http://search.cpan.org/~mischke/POE-Wheel-Audio-Mad-0.3/Mad.pm
+#	http://search.cpan.org/~allenday/FFmpeg-6036/FFmpeg/Stream/Audio.pm
+#	http://search.cpan.org/~tels/Audio-Audiere-0.05/lib/Audio/Audiere/Stream.pm
+# btw, how does one link to the *current* version of a cpan thing?
+#
+# you can use the 'psyccmd' script to remote control
+# this script, which therefore can act as a music
+# jukebox.
+
+# since perl has no native preprocessor, this code is
+# managed by the 'jaggler' preprocessor.
+#
+# to activate the new event model for Net::PSYC use
+#	jaggler -x -c# -j§ -DOTE psycmp3
+# to activate the old event model for Net::PSYC use
+#	jaggler -x -c# -j§ -DOT psycmp3
+# psycmp3 in 'distribution' default mode
+#	jaggler -x -c# -j§ -DE psycmp3
+# lynX's config
+#	jaggler -x -c# -j§ -DEO psycmp3
+#
+# list of available jaggler flags:
+#  'E' := "el" - use elridion's new event model
+#  'T' := "time" - activates output of access and modification time
+#  'O' := "org" - enable shift-key functions to reorganize collection
+
+# things still in "makenoise":	cdrom-file-caching, des-decoding,
+#				marks, volumes, support for non-mp3s.
+sub help { print &head, <<X; }
+
+basics:	(q)uit (h)elp
+
+motion:	(p)lay (s)top pa(u)se
+      [ j(ump) ] <mm:ss> 		jump to an absolute point in the song
+      [ (g)oto ] <pos> [<range>]	 can do smart guessing of range value
+ (for example you can simply type '0' thru '9' to jump to a point in the song)
+
+files:	(o)pen <file>			       immediately load this new song
+	<file>		    a filename by itself will first fade current song
+	(l)ist [<dir>]					     simply calls 'ls'
+	(n)ext					      next file from playlist
+	'?'			 show a list of the next 9 songs in the queue
+	(e)dit playlist
+	e(x)it					exit without updating playlist
+
+volume:	(v)olume [0..100]			    default is maximum volume
+	(f)ade [<volume> [<psecs>]]	     psecs: time between volume steps
+	(r)ise [<volume> [<psecs>]]		       (example: fade 33 0.1)
+
+extra commands for scripting:
+	sleep <time>	wait for <time> before executing next command
+=============================================================================
+X
+
+# default PSYC address for this service, UDP port 1144 on this host.
+# can be overridden with -b
+#
+$UNI = 'psyc://127.0.0.1:1144d/';
+#
+# be mindful that if you use outgoing -M the receiving side can send
+# remote control commands back to you, even if you bind localhost here.
+# you may like to have such chat-based remote control, or you may not..
+
+# volume values, since volume doesn't seem to be linear as it should
+# at least not my soundcard, check for yourself..
+#
+@VV = ( 0,2,5,8,11,14,17,20,24,28,33,38,43,49,56,64,72,81,90,100 );
+
+# for now psycmp3 can only handle .mp? and .sdj
+#   "temp" are the temporary mp3 filenames of audiogalaxy
+#   "dl" are from some gnutella
+$FILETYPES = "(mp\\d|sdj|temp|dl)";
+# "(wav|au|mp\\d|sea|mod|gz|lha|Z|lzh|zip|s3m)";
+# |med|mmd0)";
+# should also be able to handle .pls
+
+# starting pcm volume. system volume is kept at maximum anyway.
+$VOL = 0;
+
+# allow 'D' key to delete the file currently being listened to (!!)
+# ignored if -DO was not provided in jaggler
+$ALLOW_DELETE_KEY = 1;
+
+# string contained in path for files that are deleted in -d mode
+$VOLATILE = 'VOLATILE';
+
+# string contained in path for files that are kept even when in -D mode
+$KEEP = 'LOCAL';
+
+# debugging (inline macro, if undefined all debugging code is removed)
+#	1: examine progress
+#	2: debug file recursion
+#	4: debug randomizer
+#	8: show playlist order
+#	16: debug PSYC transactions
+#	32: weird things that shouldn't happen
+#	64: show server pid
+#	128: show songs of same size when using -s S
+#	256: show all rxaudio output
+#	512: watch only rxparse
+#	1024: watch timer events (timeout simulation)
+sub DEBUG () { 32 + 128 }
+
+# also activate PSYC debugging
+#Net::PSYC::setDEBUG(3);
+
+# used by randomize algorithm - how much of the path is compared?
+# would be smart to choose this value dynamically..
+sub PATHMATCH () { 12 }
+
+$tmpdir='/temp';
+$tmpdir='/tmp' unless -d $tmpdir and -w _;
+$tmpdir='.' unless -d $tmpdir and -w _;
+# $tmplock="$tmpdir/.psycmp3-copylock";
+$playlist="$tmpdir/playlist-$ENV{USER}.m3u";
+$hateindex="/Y/arclocator/lyndices/TRASH-$ENV{HOST}.ix";
+
+	use FileHandle;
+	use Carp;
+	use IPC::Open2;
+	#use MPEG::MP3Info;	# no longer necessary
+#§	use Date::Format;	# just for time2str	#? T
+#§	use Net::PSYC qw( :anachronism );		#? !E
+	use Net::PSYC qw( :event );			#? E
+	# special hack for timeout detection
+
+$scan = 0;
+
+MAIN: {
+	if ($#ARGV >= 0) {
+		require 'getopt.pl';
+		&Getopt('bMns');
+	}
+	$nick = $opt_n
+	     || $ENV{'PSYCNICK'}
+	     || $ENV{'NICK'}    # this one should work with any chat system
+	     || $ENV{'IRCNICK'}
+	     || $ENV{'USER'}
+	     || $ENV{'HOST'}
+	     || 'unixer';
+
+	if ($opt_h) {
+		print &head, <<X, &sorthelp;
+
+usage: $0 [<flags>] [-b <uniform>] [-s <mode>] [-M <UNI>] [<files|dirs>]
+
+	[-b]ind PSYC uniform and accept commands from both PSYC and stdin
+	[-M] sends currently playing title to a monitoring entity via PSYC
+	[-n]ickname to use for monitoring, otherwise '$nick' will be used
+	[-s] provides for several sort options, see below
+flags:
+	[-H] shows an explanation what this tool is good for, try it!
+	[-r]andomize using a smart shuffle algorithm, much better than "-s r"
+	[-m]ono output
+	[-v]erbose: shows some output from rxaudio
+	[-q]uiet: shows close to no output
+	[-c]alculate cumulative duration of selections
+	[-L]oad the tracks in the playlist only if they really exist
+	[-x] will terminate perl and exec xaudio, use only when short on memory
+	[-I]nitialize rxaudio anew for each song, special hack
+	[-d]elete files after playing if the path contains the word '$VOLATILE'.
+	[-D]elete files after playing unless the path contains the word '$KEEP'.
+	[-S]kip files if the path contains the word '$KEEP', dont play them.
+
+    without arguments psycmp3 resumes from last run´s playlist.
+X
+#	[-l]ist filenames, sizes and bitrates (for archive documentation)
+#	  ... broken and prolly useless
+		exit;
+	}
+	# initialize randomizer
+#	my $a = time() ^ $$; $a = reverse $a; srand($a);
+	# no longer necessary with newer perls,
+	# even the following is optional:
+	srand;
+
+# no longer requires 'ircflush' from the ircII
+# distribution to get around a tragedy in rxaudio
+#
+#	print <<X unless $has_ircflush = &which('ircflush');
+#cannot find ircflush. ircflush is part of the ircII distribution.
+#
+#X
+	print <<X unless $has_rxaudio = &which('rxaudio');
+cannot find rxaudio. cannot play any mp3s without
+rxaudio from http://www.mpeg.org/xaudio/
+or, just for friends, from http://mp3.pages.de/files/	(old linux binary)
+of course you are welcome to update psycmp3 to work with xmms or mplayer or..
+
+X
+	# aoss: Wrapper script to facilitate use of the ALSA OSS compatibility library.
+	$has_aoss = &which('aoss') or "";
+	if ($opt_H || !$has_rxaudio) {
+		print &head, <<X;
+
+This mp3 player, or rather, controlling device, since it controls the rxaudio
+mp3 player engine, brings you a threefold functionality which you may combine
+at will:
+
+1. a command line mp3 player which gives you possibilities to navigate mp3
+   music and similar functions by entering commands on the keyboard, so you
+   don't need a GUI to achieve the same effects.
+
+2. the player can be remote controlled with UDP messages according to the
+   PSYC protocol for synchronous conferencing - an upcoming chat protocol
+   which can be used for all sorts of messaging, so it's fine for this
+   purpose too. This enables you to implement CGI-based remote controls
+   or suchlike. the _request_execute method family is understood via PSYC.
+   unless you specify the -b option, $UNI will be used
+   as PSYC address for reception of commands. currently no authentication
+   is requested, so it is generally good to bind to localhost. a message
+   can contain several lines of instructions. no further input will be
+   accepted while processing these instructions.
+
+3. this player is scriptable by "scripting deejay" files (extension .sdj),
+   they allow you to automate operations on mp3 files, yes: even produce
+   simple remixes on mp3s without actually modifying them.
+
+see '$0 -h' for usage instructions
+X
+		exit;
+	}
+	&enqueue(@ARGV);
+	if ($NS) {		# global var for number of enqueued songs
+	    do {
+		@order = $opt_r ? &randomize : &sortsongs($opt_s);
+		print STDERR "\r[order] ", join(' ', @order), "\n\n" if DEBUG & 8;
+		foreach my $i (@order) {
+		    unless ($i) {
+			print STDERR " (weird bug encountered)\n" if DEBUG & 32;
+			undef @order;
+			next;
+		    }
+		}
+	    } until (@order && $order[0]);
+	    &save(-1);
+	} elsif (-r $playlist) {
+	    &load unless $opt_x;
+	    system "$ENV{EDITOR} $playlist;clear" if $opt_e;
+	}
+
+	#exec "xaudio `cat $playlist`" if $opt_x;
+	exec 'xaudio "`cat $playlist`"' if $opt_x;
+	#exec "mpg123 --remain --aggressive -@ $playlist" if $opt_x;
+
+	print STDERR "binding to $opt_b ...\n" if DEBUG & 16 && $opt_b;
+	bind_uniform( $opt_b || $UNI );
+	register_uniform();				#? E
+	$rc = sendmsg ($opt_M, '_notice_summary_play_music',
+"[_nick_application]: [_nick] is going to listen to [_amount_tracks] tracks.",
+	      { _nick => $nick, _nick_application => 'psycmp3',
+		_amount_tracks => $NS } ) if $opt_M;
+	print STDERR "sent greeting to $opt_M ...\n" if DEBUG & 16 && $opt_M;
+	add( \*STDIN, 'r', \&stdread );			#? E
+#§	dirty_add( \*STDIN );				#? !E
+	&rxstart;
+
+	require 'pwd.pl'; # also used by &save()
+	&initpwd;
+	if ($opt_d) {
+		print STDERR ($Volatile = $ENV{PWD} =~ /\b$VOLATILE\b/oi) ?<<X:<<Y;
+Warning: ALL files will be deleted after consumption.
+X
+Warning: Files tagged $VOLATILE will be deleted after consumption.
+Y
+	}
+	if ($opt_D) {
+		print STDERR ($Keep = $ENV{PWD} =~ /\b$KEEP\b/oi) ?<<X:<<Y;
+Warning: NO files will be deleted.
+X
+Warning: All files not tagged $KEEP will be deleted after consumption.
+Y
+	}
+	print &head, <<X unless $opt_q;
+enter (h) for help
+
+X
+	&p('channels mono') if $opt_m;
+	$CS = -1;	# global var for current song
+
+	&next(0);
+#	&vol(100);
+	$|=1;
+ #{ E
+	# Net::PSYC::Event doesn't support idle events yet.. TODO
+	add(3, 'i', \&timeout, 1);
+	# higher frequency necessary to detect timeouts this way..
+	# then again, if it's too high timer is sometimes faster
+	# than rxaudio and produces an erroneous kick..
+# this was before el added idle events.. thx el
+#	add(3, 'i', \&timeout);
+	start_loop();
+}
+
+sub timeout {
+#		print STDERR "\r$dirtyflag " if DEBUG & 1024;
+#		# since we don't have idle events, we have to count timer events
+#		# less elegant, but no big difference cpu-wise after all
+# this was before el added idle events.. thx el
+#		return 3 unless $dirtyflag++;
+ #:
+#§	while(1) {
+#§	    @d = dirty_wait(3.33);
+#§	    unless (@d) {
+ #}
+		if (!$paused) {
+		    # HACK for rxaudio which sometimes gets enchanted
+		    #y $trick = rand(2)>1 ? 'pause' : 'seek 1 1';
+		    #y $trick = ('pause', 'seek 1 1', 'play')[rand(3)];
+		    #y $trick = 'seek 1 1';
+#		    print " (kicking rxaudio with '$trick')\n" if DEBUG & 32;
+#		    &p( $trick );
+		    print "\n\t\t(kick) " if DEBUG & 32;
+		    &p('seek 1 1');
+		}
+ #{ !E
+#§	    } else {
+#§		foreach $d (@d) {
+#§		    if ($d == \*R) {
+#§			$_ = scalar <R>;
+ #:
+		return 3;
+}
+
+sub rxread {
+			$_ = <R>;
+ #}
+			print STDERR $_ if DEBUG & 256;
+			# example: MSG notify position [offset=20, range=400]
+			if ( /^MSG notify position / ) {
+			    /\boffset=(\d+), range=(\d+)\b/;
+			    # HACK! HACK!
+			    # send something that will flush the EOF to us
+			    print W "get_player_mode\n" if 5+$1 > $2;
+			} else {
+			    $_ = &rxparse( $_ );
+			    if ( /EOF/ ) {
+				    # &progress('');
+				    if ($deleteLater eq $CurrentFile) {
+					print unlink ($deleteLater) ?
+						"\r***[\n" : "\r - [\n";
+					$deleteLater = undef;
+				    } elsif ($opt_d && ($Volatile ||
+					$CurrentFile =~ /\b$VOLATILE\b/oi)) {
+					    print unlink ($CurrentFile) ?
+						    "\r***[\n" : "\r - [\n";
+# [could not delete $CurrentFile]
+				    } elsif ($opt_D && !$Keep &&
+					$CurrentFile !~ /\b$KEEP\b/oi) {
+					    print unlink ($CurrentFile) ?
+						    "\r***[\n" : "\r - [\n";
+				    } else {
+					    my $m = $date[$order[$CS]];
+					    # touch the access time of the file
+#	print "\rto be accessed: ", isotime(time),
+#		"\tto be changed: ", isotime($m), "\n";
+					    utime time, $m, $CurrentFile;
+ #{ T
+#§#	($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
+#§#	   $atime,$mtime,$ctime,$blksize,$blocks) = lstat($CurrentFile);
+#§#	print "\rset accessed: ", isotime($atime),
+#§#		"\tset changed: ", isotime($mtime), "\n";
+ #}
+					    print "\r   [\n" unless $opt_q;
+				    }
+				    &rxstop if $opt_I;
+				    &next(0);
+			    }
+			}
+}						#? E
+#§		    } elsif ($d == \*STDIN) {		#? !E
+sub stdread {					#? E
+			    $_ = scalar <STDIN>;
+			    &parse( $_ );
+	}						#? E
+ #{ !E
+#§		    } else {
+#§			    ($err,$a,$p,$mc,$data,%vm) = &dirty_getmsg;
+ #:
+# according to new event system
+sub msg {
+			    my ($source, $mc, $data, $vars) = @_;
+ #}
+# --PSYC--> $mc($data) from $vm{':_source'} ($a:$p) <--
+ #{ E
+			    return if $mc =~ /_circuit/;
+			    unless ($opt_q) {
+				    my $tx = psyctext($data, $vars);
+				    print <<X;
+
+» $source ($mc) »»» $tx «««
+
+X
+			    # disable when using -M
+			    return if $opt_M;
+ #:
+#§			    next if $mc =~ /^_circuit/;
+#§			    print <<X unless $opt_q;
+#§$err
+#§» PSYC($a:$p) »»» $data «««
+#§
+#§X
+#§			    # only allow localhost when using -M
+#§			    #next if $opt_M and $a and $a ne '127.0.0.1';
+#§			    next if $opt_M;
+ #}
+			    &parse($data) if $mc =~
+				/^(_request_execute|_command|_message)/;
+ #{ !E
+#§		    }
+#§		}
+#§	    }
+ #}
+	}
+	# should never get here
+	# while(<stdin>) { &parse($_); }
+	&fade(0);
+}
+exit;
+
+ #{ T
+#§sub isotime {
+#§        my $t = shift;
+#§        return time2str('%Y-%m-%d %T', $t);
+#§}
+ #}
+
+sub open {
+	my $file = shift;
+	return unless $file;
+ #{ T
+#§	my $m = $date[$order[$CS]];
+#§	my $a = $adate[$order[$CS]];
+#§	print "\rlast accessed: ", isotime($a),
+#§		"\tlast changed: ", isotime($m), "\n";
+ #}
+#	&rxopen if $opt_I;
+	&rxstart if $opt_I;
+	if ($file =~ /\.sdj$/i and -T $file) {
+		# calling a script from a script is like a "skip"..
+		$SCRIPT = $file;
+		print "[executing script $SCRIPT]\n" unless $opt_q;
+		open(F, $file) || die "$file: $!";
+		while(<F>) {
+			&parse($_);
+		}
+		close F;
+		print "[script terminated]\n" unless $opt_q;
+		undef $SCRIPT;
+		&next(0);		# hmmmm?
+	} elsif (! -r $file) {
+		print "[oh! $file has disappeared]\n" unless $opt_q;
+		&next(0);		# hmmmm?
+	} else {
+		# xaudio does this for us now
+#		if (defined( &get_mp3info )) {
+#			$mp3 = get_mp3info($file);
+#			printf "$file length is %02d:%02d\n",
+#			  $mp3->{MM}, $mp3->{SS};
+#		}
+		&p("open $file");
+		$TC = '[--:--:--:--]';
+		$DUR = 0;
+		&sleep(0.3);	# have to wait for file to load?
+		$scan=0, &seek(5) if $scan;
+#		&seek(@_) if @_;
+#		&vol(100);
+	}
+}
+sub next {
+	my $a = shift;
+	&fade(43, $a) if $a and $VOL > 50;
+	my $n = $file[$order[++$CS]]; # || $file[$CS];
+	&exit if !$n or ($n eq '') or !$NS or $CS >= $NS;
+	return &next(0) if $opt_S and $n =~ /\b$KEEP\b/oi;
+	&open( $n );
+ #	if (!$a or $opt_I) {
+ #		print "(not waiting) " if DEBUG & 32;
+#		&sleep(.4);
+ #		&p('play');
+ #	}
+ 	&p('play');
+	if ($opt_M) {
+		undef $!;
+		$rc = sendmsg ($opt_M, '_notice_play_music_title',
+		     "[_nick] is listening to: [_music_title]",
+			 { _nick => $nick, _music_title => $n
+		 } );
+		die "sendmsg $rc: $!" if $!;
+		print STDERR "sent to $opt_M!\n" if DEBUG & 16;
+	}
+	&vol($Volume) if $Volume;
+	$paused = 0;
+	# next;
+}
+
+sub parse {
+	$_ = shift;
+	s/^\s+//;
+	chomp;
+	if ($SKIP) {
+		next unless /^:$SKIP/;
+		undef $SKIP;
+		next;
+	}
+	if (/^\?$/) {
+		my $any = 0;
+		print <<X;
+
+currently playing: $CurrentFile
+X
+		my $max = $NS-$CS > 9 ? $CS+9 : $NS-1;
+		for ($i = $CS+1; $i <= $max; $i++) {
+			my $f = $file[$order[$i]];
+			my $s = $size[$order[$i]] || -s $f;
+#			my $a = $adate[$order[$i]];
+			$f =~ s/\.mp3$//i;
+			$f = '..'.substr($f,length($p)-61) if
+				length($f) > 63;
+			$any++;
+			printf "%3d.%8d %s\n", $i, $s, $f;
+		}
+		print $any ? "\n" : "<no more songs in playlist>\n\n";
+		next;
+	}
+	next unless /^\w/;
+	print "> $_\n" if $opt_v and $SCRIPT;
+
+	# techniques to seek in mp3 file
+	/^([\d:']+)$/ and &seek($1), next;
+	/^(\d+)\s+(\d+)$/ and &seek($1,$2), next;
+	/^(g|go|goto|seek)\b\s*(\S*)(.*)$/ and &seek($2,$3), next;
+	/^(j|jump)\b\s*(\S*)$/ and &jump($2), next;
+
+	/^skip\s(\w+)$/ and $SKIP=$1, next;
+	/^o\s+(.*)\s*$/ and &open($1), next;
+	/^scan\s+(.*)\s*$/ and $scan=1, &open($1), next;
+	/^(n|next)\b\s*(\S*)$/ and &next($2 || .05), next;
+ #{ O
+	if ( $ALLOW_DELETE_KEY ) {
+	    if ( /^D(D?)\s*$/ ) {
+		my $f = $CurrentFile;
+		if ($1) {
+	# Double-D deletes song and remembers it in the index of trash music
+			use MP3::List;		# optional part
+			my ($out, $dur) = &MP3::List::format($f);
+			if ($out and open(HATE, ">> $hateindex")) {
+				print HATE $out;
+				close HATE;
+				print "***";
+			} else {
+				print "---";
+			}
+		}
+		&rxclose;
+		print "» deleted: $f\n" if unlink $f;
+		&rxopen;
+		&next(0);
+		next;
+	    }
+	    if ( /^V\s*$/ ) {	# as in 'VOLATILE'
+		$deleteLater = $CurrentFile;
+		print "» scheduled for deletion: $deleteLater\n";
+		next;
+	    }
+	}
+	if ( /^(J|K|R|S|X)\s*$/ ) {
+		my $t = $1 eq 'J' ? 'DEEJAY' :
+			$1 eq 'K' ? 'KEEP' :
+			$1 eq 'X' ? 'EXPORT' :
+			$1 eq 'S' ? 'SECONDARY' : 'REPERTOIRE';
+		my $f = $CurrentFile;
+		$f = $ENV{PWD}. '/'. $f unless $f =~ m!^/!;
+		unless ($f =~ s:\b(SHARE|COMPLETE|OUT|NEW|SEEK|CD|TODO)\b:$t:i)
+		{
+			print "» not applicable for $f\n";
+			next;
+		}
+		my $d = $f;
+		$d =~ s:/[^/]+$::;
+		use File::Path;
+		mkpath $d;
+	#	unless (mkpath($d)) {
+	#		print "» could not mkdirhier $d\n";
+	#		next;
+	#	}
+		unless (rename ($CurrentFile, $f)) {
+			print "» could not move file to $d\n";
+			next;
+		}
+		print "» moved to $d\n";
+		&next(0);
+		next;
+	}
+ #}
+	# /^open\s+(\S*)\s*\b(\S*)\s*\b(\S*)\s*$/ and &open($1,$2,$3), next;
+	/^(v|vol|volume)\b\s*(\S*)$/ and &vol($Volume = $2), next;
+	/^(f|fade)\b\s*(\S*)(.*)$/ and &fade($2,$3), next;
+	/^(r|rise)\b\s*(\S*)(.*)$/ and &rise($2,$3), next;
+	/^sleep\b\s*(\S*)$/ and &sleep($1), next;
+	/^(d|duration)\b\s*(\S*)$/ and &duration($2), next;
+	/^(l|list)\b\s*(\S*)$/ and system("ls $2"), next;
+	/^(h|help)\b/ and &help, next;
+	/^(e|edit)\b/ and &edit($CS), next;
+
+	if ( /^\s*(.....+)\s*\b(\S*)\s*\b(\S*)\s*$/ and -r $1 ) {
+		&fade(33, .1) if $VOL > 50;
+		&open($1, $2, $3);
+	#	&sleep(.2);
+	#	&p('play');
+	#	&vol(100);
+		next;
+
+		# &p("open $1");
+		# &sleep(.4);
+		# &sleep;
+	}
+#	if ( s/^(\S+\.mp3)\s+(\d+)\b// ) {
+#		&p("open $1");
+#		&sleep;
+#		&p("seek $2 1000");
+#		&sleep;
+#		&p('play');
+#	}
+#	&p("open $_") if s!\b(\S+\.mp3)\b!!;
+#	if ( s/\b(\d+)\s+(\d+)\b// ) {
+#		&p("seek $1 $2");
+#	}
+
+	/^(q|quit)\b/ and &save($CS-1), &exit;
+	/^(x|exit)\b/ and &exit;
+	# s/^o\b/open/;
+	s/^p\b/play/ and $paused = 0;
+	s/^s\b/stop/ and $paused = 1;
+	s/^u\b/pause/ and $paused = !$paused;
+	&p($_) if $_;
+}
+
+sub sleep {
+	my $t = shift;
+	if ($t) {
+		if ( $t =~ /(\d+)(:|')(\S+)/ ) {
+			$t = $1*60+$3;
+		}
+	}
+	else {
+		$t = 0.1;
+	}
+	print "[sleeping $t secs]\n" unless $opt_q or $t < 1;
+	select (undef,undef,undef,$t);
+	return $t;
+}
+
+sub p {
+	my $p = shift;
+	print "==> $p\n" if $opt_v;
+	print W $p, "\n";
+	&sleep(0.1);
+}
+
+sub fade {
+	my $s = shift;
+	$s = 33 unless $s;
+	my $p = shift;
+	$p = 0.4 unless $p;
+	foreach $i ( reverse @VV ) {
+		next if $i >= $VOL;
+		last if $i <= $s;
+		&vol($i);
+		&sleep($p);
+	}
+	if ($s) {
+		&vol($s);
+	} else {
+		&p( 'pause' );
+		$paused = !$paused;
+	}
+	&sleep($p);
+	return 1;
+}
+sub rise {
+	my $s = shift;
+	$s = 100 unless $s;
+	my $p = shift;
+	$p = 0.2 unless $p;
+	&p( 'play' ) unless $VOL;
+	foreach $i ( @VV ) {
+		next if $i <= $VOL;
+		last if $i >= $s;
+		&vol($i);
+		&sleep($p);
+	}
+	if ($s) {
+		&vol($s);
+		&sleep(0.5);
+	}
+	$paused = 0;
+	return 1;
+}
+
+sub vol {
+	$VOL = shift;
+	# &p( "volume 100 $VOL 50" );
+#	print W "volume 100 $VOL 50\n";
+	print W "volume $VOL $VOL 50\n";
+	return 1;
+}
+
+sub seek {
+	my $p = shift;
+	my $r = shift;
+
+	&duration($r) if $r =~ /[:']/;
+	return &jump($p) if $p =~ /[:']/;
+
+	$p = $1 if $p =~ /(\d+)/;
+	$r = 10 ** length($p) unless ($r);
+	&p( "seek $p $r" );
+	return 1;
+}
+
+sub duration {
+	my $t = shift;
+
+	if ( $t =~ /(\d*)(:|')(\S+)/ ) {
+		$t = $1 ? $1*60+$3 : $3;
+	}
+	$DUR = $t * 1000;
+	print "[duration is $t secs]\n" unless $opt_q;
+	return 1;
+}
+
+sub jump {
+	my $t = shift;
+	unless ($DUR) {
+		print STDERR "[you must specify the song duration first]\n";
+		return 1;
+	}
+	if ( $t =~ /(\d*)(:|')(\S*)/ ) {
+		$t = $1 ? $1*60+$3 : $3;
+	}
+	&p( "seek ". $t*1000 .' '. $DUR );
+	return 1;
+}
+
+# if your system doesn't have "which" we're in trouble
+sub which {
+	my $cmd = shift;
+	$_ = `which $cmd`;
+	/^(\S+)\s*$/;
+	return $1;
+}
+
+sub sortsongs {
+	my $style = shift;
+	return (1 .. $NS) unless $style;
+	lc $style;
+	my @order;
+	eval "\@order = sort by_$style 1 .. $NS";
+	croak <<X, &sorthelp if $@;
+invalid sort option '$style'
+X
+	return @order;
+}
+sub sorthelp { return <<X; }
+
+available sort algorithms:
+	n(ame)		# sorts by file path (directory first)
+	N(ame)		# sorts by file ending (reverse of -n)
+        nr		# gives an order by name a slight shuffle
+        cr		# gives the order given on commandline a slight shuffle
+	s(ize)		# hear silly small sound snippets first
+	S(ize)		# hear big epic pieces first
+	m(odification)	# hear newest tracks first
+	M(odification)	# hear oldest tracks first
+	a(ccessTime)	# hear tracks you haven't heard in a long time first
+	A(ccessTime)	# hear tracks you recently accessed first
+X
+	# r(andom)	# bad randomizer algorithm (use -r instead)
+sub by_n { $file[$a] cmp $file[$b]; }
+sub by_N { reverse($file[$a]) cmp reverse($file[$b]); }
+sub by_r { rand(10) < 5; }
+sub by_nr { rand(9) > 3 ? &by_name : &by_rand; }
+sub by_cr { rand(9) > 3 ? $a <=> $b : &by_rand; }
+sub by_m { $date[$a] <=> $date[$b]; }
+sub by_M { $date[$b] <=> $date[$a]; }
+sub by_a { $adate[$a] <=> $adate[$b]; }
+sub by_A { $adate[$b] <=> $adate[$a]; }
+sub by_s {
+	# one side of this if/else clause gets optimized away at compilation
+	if (DEBUG & 128) {
+		my $B = $size[$b]; my $A = $size[$a];
+		print <<X if $A == $B;
+Same file size $B:
+	$file[$a] and
+	$file[$b]
+X
+		return $A <=> $B;
+	} else {
+		return $size[$a] <=> $size[$b];
+	}
+}
+sub by_S {
+	# one side of this if/else clause gets optimized away at compilation
+	if (DEBUG & 128) {
+		my $B = $size[$b]; my $A = $size[$a];
+		print <<X if $A == $B;
+Same file size $B:
+	$file[$a] and
+	$file[$b]
+X
+		return $B <=> $A;
+	} else {
+		return $size[$b] <=> $size[$a];
+	}
+}
+
+sub randomize {
+	my @tmp = 1 .. $NS;
+	my @order = ();
+	my $lr = -99;
+	for my $j (1 .. $NS) {
+		my $r = int(rand($#tmp));
+		my $ir = $tmp[$r];
+
+		# this tries to avoid items being too near
+		# even if randomizer suggests so -
+		# in particular try not to play the same artist
+		# in a row, that's why we look at the filename
+		if ($#tmp>7 and abs($lr-$ir)<23 and
+		   substr($file[$lr],0,PATHMATCH) eq
+		   substr($file[$ir],0,PATHMATCH)) {
+			print STDERR <<X if DEBUG & 4;
+last=$lr\t[$file[$lr]]
+near=$ir\t[$file[$ir]] ($r)
+X
+			$r = int(rand($#tmp));
+			$ir = $tmp[$r];
+			if (substr($file[$lr],0,PATHMATCH) eq
+			    substr($file[$ir],0,PATHMATCH)) {
+				print STDERR <<X if DEBUG & 4;
+new =$ir\t[$file[$ir]] ($r)
+\t\tno good, one more try:
+X
+				$r = int(rand($#tmp));
+				$ir = $tmp[$r];
+			}
+			print STDERR <<X if DEBUG & 4;
+new =$ir\t[$file[$ir]] ($r)
+
+X
+		}
+		$lr = splice @tmp, $r, 1;
+		push @order, $lr;
+	}
+	return @order;
+}
+
+sub enqueue {
+	my $saveNS = $NS;
+	for $_ (@_) {
+		if (-d $_ && -x _ && -r _) {
+			require 'finddepth.pl';
+			print STDERR "\n[finddepth: $_]\n" if DEBUG & 2;
+			&finddepth($_);
+			next;   # $_ is corrupted after finddepth
+		}
+		$name = $_;
+		print STDERR "\n[file wanted: $_]\n" if DEBUG & 2;
+		&wanted;
+	}
+	if (my $new = $NS - $saveNS) {
+	       &progress($new, ' songs found');
+	       print "\n";
+	}
+}
+sub wanted {
+	($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
+	   $atime,$mtime,$ctime,$blksize,$blocks) = lstat($_);
+	my $neat = length($name)>70 ? "...".substr($name,-67) : $name
+	    unless $opt_q;
+	if (-f _ && -r _ && -s _ > 9999 && /.\.$FILETYPES$/io ) {
+		$file[++$NS] = $name;
+		$size[$NS] = $size || -s _;
+		$date[$NS] = $mtime || -M _;
+		$adate[$NS] = $atime;
+		&progress('yes: ', $neat);
+	} elsif ( -d _ && -e "$_/.prune" ) {
+		$prune = 1;
+		&progress('pruned: ', $name);
+		print "\n";
+#	} elsif ( $decode && -f _ && /\bindex\.etx$/i ) {
+#		open(I, "$decode <$_ |")
+#		  and @index = (@index, <I>) and close I;
+#		&progress('inf: ', $neat);
+	} else {
+		&progress('no : ', $neat) if -f _;
+	}
+}
+sub progress {
+	return if $opt_q;
+	my $tx = join('', @_);
+	my $len = length $tx;
+	unless ($opt_q) {
+		print "\r", $tx, ' ', '_' x (75-$len), ' ' if $len < 75;
+		print "\n" if DEBUG & 1;
+	}
+}
+
+sub expect {
+	local($match) = @_; 
+
+	while(<R>) {
+		last if /$match/i;      # not /o!
+		&rxparse($_);
+	}
+	# print "\n";
+}
+sub rxparse {
+	if (/^MSG notify timecode (\S+)/) {
+		unless ($TC eq $1) {
+			$TC = $1;
+			print "\r$1 " unless $opt_q;
+		}
+		return 0;
+	}
+	print STDERR if DEBUG & 512;
+	if (/^MSG notify duration \[(\d+)\]/) {
+		# kludge to get around a bug in xaudio (duration output twice)
+		if ($1 != $LDUR) {
+			$LDUR = $DUR = $1;
+			$DUR *= 1000 if $DUR < 1000;
+			$CDUR += $DUR;	# cumulative duration
+		}
+		return 0;
+	} 
+	if (/ stream info \[(.+)\]/) {
+		%I = split /[=,\s]+/, $1;
+		my $d = $DUR / 1000;
+		$I{duration} = sprintf("%02d:%02d", $d / 60, $d % 60);
+#		if ($opt_l) {
+#			my $f = $file[$order[$CS]];
+#			my $s = $CurrentFile eq $f ? -$size[$order[$CS]] : -s $f;
+#			printf ("%9d %5s %3s\t%s\n", $s,
+#				$I{duration}, $I{bitrate}, $CurrentFile);
+#		}
+		$I{mode} = lc $I{mode};
+		if ($opt_c) {
+			my $d = $CDUR / 1000;
+			$I{cumulative} = sprintf("%02d:%02d", $d / 60, $d % 60);
+			&progress("$TC   -> [$I{duration}] {$I{cumulative}} $I{bitrate} mp$I{layer}.$I{level} $I{frequency} $I{mode} ");
+		} else {
+			&progress("$TC   -> [$I{duration}] mp$I{layer}.$I{level} with $I{frequency} Hz at $I{bitrate} kbps in $I{mode}");
+		}
+		return $_;
+	}
+#	if ($opt_l and / ack \[XA_MSG_COMMAND_INPUT_OPEN\]/) {
+#		my $f = $file[$order[$CS]];
+#		my $s = $CurrentFile eq $f ? -$size[$order[$CS]] : -s $f;
+#		printf ("%9d\t%s\n", $s, $CurrentFile);
+#	}
+	if (/ input name \[(.+)\]/) {
+		my $nf = $1;
+		# global vars for current filename
+		$CurrentFile = $nf;
+		$PrintCurrentFile = (-s $nf).' ';
+		$nf =~ s/\.mp3$//i;
+		$PrintCurrentFile .= (length($PrintCurrentFile)+length($nf)>75)
+		    ? ("...".substr($nf,length($PrintCurrentFile)-73)) : $nf;
+		print "\r$PrintCurrentFile\n";
+		return $_;
+	}
+	#return 0 if /^(play|close|open|volume)/;
+	return 0 if /^(play|volume|get_player_mode)/;
+	return $_ if $opt_q or / notify (position|ack|play|state|can seek)/;
+	return $_ if !$opt_v && /notify (debug|output|input|nack)/;
+	# my $o = $_;
+	s/^MSG notify //i;
+	print "\r*** ", $_;
+	return $_;
+}
+
+sub rxstart {
+	return if $pid;
+	if ($opt_I) {
+		system("soundoff");
+		system("soundon");
+		system("clear");
+	}
+	$R = new FileHandle; $R->autoflush;
+	$W = new FileHandle; $W->autoflush;
+	$pid = open2( \*R, \*W, "$has_aoss $has_rxaudio");
+	$pid || die "$has_aoss $has_rxaudio: $!";
+	print STDERR <<X if DEBUG & 64;
+rxaudio server running as $pid
+X
+	&expect('ready');
+	add( \*R, 'r', \&rxread );		#? E
+#§	dirty_add( \*R );			#? !E
+	$output_open = 1;
+}
+sub rxstop {
+	remove( \*R );				#? E
+#§	dirty_remove( \*R );			#? !E
+	p('exit');
+	close R;
+	undef $pid;
+	$output_open = 0;
+}
+sub rxclose {
+	p('output_drain');
+	$output_open = 0;
+	p('output_close');
+}
+sub rxopen {
+	return if $output_open;
+	if ($opt_I) {
+		system("soundoff");
+		system("soundon");
+		system("clear");
+	}
+	p('output_open');
+	$output_open = 1;
+}
+
+sub exit { &rxstop, exit; }
+
+sub load {
+	my $songs = $opt_L? 'songs': 'entries';
+	local *L;
+	return unless open (L, $playlist);
+	for ($NS=0; <L>;) {
+		chomp;
+		if ($opt_L and not -r $_) {
+			print "Skipping $_\n";
+			next;
+		}
+		$order[$NS] = $NS;
+		$file[$NS++] = $_;
+	}
+	close L;
+	print "\rLoaded $NS $songs from $playlist\n\n" unless $opt_q;
+}
+sub save {
+	my $cs = shift;
+	local *L;
+	umask 077;
+	return unless open (L, ">$playlist");
+	print "\rSaving playlist into $playlist\n\n" unless $opt_q;
+	foreach my $i ($cs+1 .. $NS-1) {
+		my $f = $file[$order[$i]];
+		print L $ENV{PWD}, '/' unless $f =~ m!^/!;
+		print L $f, "\n";
+	}
+	close L;
+}
+sub edit {
+	&save(shift);
+	system "$ENV{EDITOR} $playlist;clear";
+	&load;
+	$CS = -1;
+	print "$PrintCurrentFile\n";
+}

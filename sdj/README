@@ -1,0 +1,16 @@
+"Scripting DeeJay"
+ ================
+
+   psycmp3 is scriptable by "scripting deejay" files (extension .sdj),
+   they allow you to automate operations on mp3 files, yes: even produce
+   simple remixes of existing music material. unfortunately rxaudio doesn't
+   provide *real* mixing of mp3 files yet..
+
+here are some remixes i made - the mp3 files they use are
+not included, just like roms in emulators usually aren't..  ;-)
+
+   for details on the syntax.. guess what.. read the psycmp3 source  ;-)
+
+to be honest.. this is silly stuff nobody needs.. but it was fun!
+
+-lynx

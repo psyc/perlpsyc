@@ -1,0 +1,73 @@
+#!/usr/bin/perl
+#
+# yet another script to find out my own ip number
+# across routers and masquerades
+#
+# this uses tcp, but in this case udp would be smarter
+# for a short timeout in case of offlinitis. also it could
+# poll several servers at once to not be dependent on just one.
+#
+#$ask = 'beta.ve.symlynX.com';
+$ask = 'psyced.org';
+$port = 4404;
+
+use Getopt::Std;
+use IO::Socket;
+
+getopt('HP', \%o);
+
+$ask = $o{H} if $o{H};
+$port = ${P} if $o{P};
+
+# tried to multiplex -h <host> and -h as in --help, but it doesn't work
+# getopt doesn't let me do a defined($o{h}) &&! $o{h} ...
+# well it was just a perl exercise anyway
+if ( $o{h} or $o{x} or $o{v} or $#ARGV >= 0 ) {
+	print <<X;
+Usage: $0 [ -H <host> ] [ -P <port> ] [ -n ] [ --help ]
+
+Find out my public IP number by asking $ask
+on port $port or anyone you provide using the -H and -P flags.
+psycip looks for a _target* in the PSYC server greeting message.
+Use -n if the hostname is okay, otherwise the IP will always be returned.
+X
+	exit;
+}
+
+$S = IO::Socket::INET -> new(
+	PeerAddr => $ask,
+	PeerPort => $port,
+	Proto	 => 'tcp'
+);
+
+die $! unless $S;
+
+print $S <<X;
+.
+X
+
+while(<$S>) {
+#	print "*** $_";
+	if (m!^._target\w*\s+psyc://([^/:]+)/?!) {
+		$_ = $1;
+		s/\:\d*\w*$//;
+		chomp;
+		if ( $o{n} ) {
+			print "$_\n";
+			exit;
+		}
+		$_ = inet_ntoa($addrs[0]) if
+		    ($name,$aliases,$addrtype,$length,@addrs)
+		      = gethostbyname($_);
+		print "$_\n";
+		# close socket properly - avoid error messages ...
+		# this shouldn't be necessary for short-lived things
+		# so psyced needs to become smarter about it
+		print $S <<X;
+
+_request_circuit_shutdown
+,
+X
+	}
+}
+

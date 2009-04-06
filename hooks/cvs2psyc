@@ -1,0 +1,127 @@
+#!/usr/bin/perl
+
+# CVS2PSYC
+# ~*~*~*~*
+#
+# Notifies a PSYC place about changes in a CVS Repository (if cvspserver
+# is used)
+#
+# USAGE
+# ~*~*~
+# Edit your $CVSROOT/loginfo and add a line like the following:
+# DEFAULT /usr/local/bin/cvs2psyc psyc://yourserver/@yourPlace '%r' '%p' '%s'
+# Then (if cvspserver is used) the given place will be notified once something
+# gets committed into the repository.
+#
+# Please keep in mind, that (if your PSYC server is a psyced) you'll need to
+# "#define ALLOW_EXTERNAL" in the target place, otherwise the cvs notifies will
+# be rejected. See also http://about.psyc.eu/Create_Place
+#
+# Also, if you're planning to use cvsd, not only consider that you have to
+# map perl with its libraries into the chroot jail, but you even have to
+# provide /bin/sh so that loginfo gets to execute anything at all.
+#
+# GENERAL
+# ~*~*~*~
+# If you don't have a non-stop running PSYC server yet, either visit 
+# www.psyced.org and download and install yourself one, or find a
+# public server to host your place on http://about.psyc.eu/Public_Server
+
+$target  = shift;
+$repository = shift;
+$module = shift;
+$files = join(' ', @ARGV);
+
+die <<X unless $repository;
+please provide target, repository name, path and files as parameters, as in
+
+    $0 psyc://yourServer/\@yourPlace yourCVS %p %s
+
+also, the "Log Message:" is expected on stdin, as usually provided by loginfo
+X
+
+$method  = '_notice_update_software_CVS';
+$port    = 4404;
+$user = $ENV{'CVS_USER'};
+
+$remote = $1 if ($target =~ /^psyc:\/\/([^\/]*)/i);
+
+$context = $1 if ($target =~ /@(.*)$/);
+
+#print "remote is $remote\n";
+
+while (<STDIN>) {
+    $tl = $_;
+    chomp $tl;
+
+#    if ($line++ == 0) {
+#	($module, $files) = ($1, $2) if ($tl =~ /^(.+?) (.+?)$/);
+#	next;
+#    }
+
+    if ($tl eq "Log Message:") {
+	$log = 1;
+	next;
+    }
+
+    $comment .= $tl . ' ' if ($log);
+}
+
+if ($files =~ /New directory/) { # and $comment =~ /added/
+	# if i really think about it, who cares about created directories?
+	exit;
+	$files = '';
+	$comment = 'mkdir';
+} else {
+	$comment =~ s/\s*$//;
+}
+
+use Socket;
+$iaddr   = inet_aton($remote)			|| die "no host: $remote";
+$paddr   = sockaddr_in($port, $iaddr);
+socket(S, PF_INET, SOCK_STREAM, getprotobyname('tcp')) || die "socket: $!";
+
+connect(S, $paddr)				|| die "connect: $!";
+select S; $|=1; select STDOUT;
+
+$sender = $ENV{HOST} || '';
+$sender .= 'CVS';
+
+print S <<X;
+.
+X
+
+if (defined($_ = <S>) && !/^\./) {
+    die "rock hard error";
+}
+while (defined($_ = <S>) && !/^\./) {
+#	print if s/^=//;
+}
+#print "\n";
+print S <<X;
+:_target	$target
+
+:_comment	$comment
+:_files		$files
+:_module	$module
+:_repository	$repository
+:_nick_place	$context
+:_nick_editor	$user
+$method
+([_repository]:[_nick_editor] in [_module]) [_files] changed: [_comment]
+.
+
+_request_circuit_shutdown
+.
+X
+#  (CVS:[_nick_editor]) [_module] [_files] changed: [_comment]
+#  (CVS) [_module]: [_files] ([_nick_editor]: [_comment])
+#   CVS [_module] ([_files]) [_nick_editor] edits: [_comment]
+#
+# the _request_circuit_shutdown shouldn't be necessary for a simple
+# one-way message submission, but psyced needs to become easier about that
+
+# at this point we should wait for the other side to close the socket.. argl
+close (S)					|| die "close: $!";
+exit;
+

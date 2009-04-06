@@ -1,0 +1,150 @@
+#!/usr/bin/perl -I/ve/perlpsyc/lib/perlxt -I/var/depot/lib/perlxt
+#
+# usage:
+#
+# ScriptAlias /msg/~lynx /usr/local/cgi/psycpager/_message/psyced.org/~lynx
+#
+# this little thing sends a message containing "data", "name" and "addr" from
+# $QUERY_STRING to the server and object specified in $PATH_INFO,
+# so you can set up flexible access control in your webserver.
+#
+# symlynX 2000.
+
+require 5.000;
+use Net::PSYC qw(:event);
+#use strict;
+
+my %v;
+my $binder;
+
+$_ = $ENV{PATH_INFO};
+my ($method, $host, $object) = m!^/(\w+)/(.*)/([^/]+)$!;
+
+if ($object) {
+	$target = "psyc://$host/$object";
+} else {
+	require 'getopt.pl';
+	&Getopt('tbm');
+
+	$binder = $opt_b;
+	$target = $opt_t || 'psyc://127.1/';	# talk to local psyc server
+	$method = $opt_m || '_query_users_amount';
+}
+
+$binder ||= 'psyc://127.0.0.1:0d/';	# get yourself any udp port
+bind_uniform( $binder );
+register_uniform();
+
+my $source = $ENV{REMOTE_HOST} || $ENV{REMOTE_ADDR};
+if ($source) {
+	$source = $ENV{REMOTE_USER}.'@'.$source if $ENV{REMOTE_USER};
+	my $agent = 'web';
+	AGENT: {
+		$_ = $ENV{HTTP_USER_AGENT};
+		$agent = 'exploder', last if /MSIE/;
+		$agent = lc($1) if /^(\w+)\b/;
+	}
+	$source = "$agent://$source";
+}
+
+# $_ = $ENV{QUERY_STRING};
+# i hate CGI.pm
+use CGI;
+my $q = new CGI;
+my $data = $q->param('data');
+my $name = $q->param('name');
+my $addr = $q->param('addr');
+
+$_ = $name ? $name : '';
+$_ .= " ($addr)" if $addr;
+$v{'_nick'} = $_ ne '' ? "[$source] $_" : $source;
+
+print <<X;
+content-type: text/html
+
+<body bgcolor="#003333" text="#ffff66"><pre>
+
+X
+
+$|=1;
+
+# $method to $target
+# you are $v{'_source'}
+
+unless ($data) {
+	print <<X;
+<form action="$ENV{REQUEST_URI}">
+your name: <input name=name size=16 maxsize=32>
+your addr: <input name=addr size=32 maxsize=64>
+  message: <input name=data size=64>
+	   <input type=submit value="">
+</form>
+X
+	exit;
+}
+
+sub die {
+	print shift;
+	exit;
+}
+
+local(*O);
+# ignore errors, just try to log it
+chdir ($ENV{DOCUMENT_ROOT});
+chdir ('../logs');
+if (open (O, ">>htmsg\L$object\E.log")) {
+	print O <<X;
+{+ $source -- $name -- $addr -- $data +}
+X
+	close O;
+}
+
+&die("found illegal characters in your input") if $data =~ /[\x00-\x1f]/;
+
+my $rc = sendmsg ($target, $method, $data, \%v);
+&die("send: $rc") if $rc;
+
+# system 'env';
+
+print <<X;
+
+=== PSYC/UDP MESSAGE SENT. LISTENING FOR REPLIES.
+
+X
+
+add(33, 't', sub { 
+	stop_loop() 
+	print <<X;
+=== TIME OUT. THANK YOU FOR SUBMITTING A PSYC MESSAGE.
+
+X
+    });
+
+sub msg {
+	my ($source, $mc, $date, $vars) = @_;
+
+	if ($mc eq '_notice_circuit_established'
+	    || $mc eq '_status_circuit') {
+	    return;
+	}
+
+	if ($reply) {
+		print <<X;
+=== MESSAGE RECEIVED:
+	From <font color=white>$vars->{'_nick'}</font
+> ($source): <font color=white>$data</font>
+
+X
+	} else {
+		print <<X;
+=== STATUS REPLY RECEIVED:
+	Status: <font color=white>$vars->{'_nick'} $vars->{'_action'}.</font>
+
+X
+	}
+
+	stop_loop();
+}
+
+
+start_loop();

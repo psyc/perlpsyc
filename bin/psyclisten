@@ -1,0 +1,124 @@
+#!/usr/bin/perl -I/ve/perlpsyc/lib/perl5
+#
+# listen for PSYC packets and dump them
+
+require 'getopt.pl';
+&Getopt('b');
+				# make the library sweat a little
+my $uni = $opt_b || "psyc://$ENV{USER}\@127.0.0.1:2244c/\$$0";
+
+use Net::PSYC qw( :event );
+
+bind_uniform( $uni );
+register_uniform();
+
+sub type {
+    my $bla = <STDIN>;
+    print <<X;
+you typed: $bla
+bye.
+X
+    exit;
+}
+
+# shows how to do add own fds into the select-wrapper
+add(\*STDIN, 'r', \&type);
+
+sub msg {
+    my ($source, $mc, $data, $vars) = @_;
+
+    if ($vars) {
+	    print <<X;
+
+variables:
+X
+	    foreach $i (keys %$vars) {
+		    print "\t$i $vars->{$i}\n";
+	    }
+    }
+    if ($data) {
+	    if (length($data) < 200) {
+		    print <<X;
+==============================================================================
+$data
+==============================================================================
+X
+	    } elsif (open(O, ">dump")) {
+		    print O $data;
+		    close O;
+		    print "\n", length($data), <<X;
+bytes of data stored in a file called 'dump'
+X
+	    } else {
+		    print STDERR <<X;
+could not save data in a file called 'dump': $!
+X
+	    }
+    }
+    print "\nlistening... ";
+}
+
+$|=1;
+print "\nlistening on $uni ... ";
+
+start_loop();
+
+
+__END__
+# old unsupported event api
+# shows how to do add own fds into the select-wrapper
+dirty_add(\*STDIN);
+
+$|=1;
+
+while(1) {
+    print "\nlistening... ";
+    foreach $d (dirty_wait) {
+	if ($d == \*STDIN) {
+		my $bla = <STDIN>;
+		print <<X;
+you typed: $bla
+bye.
+X
+		exit;
+	} else {
+		print "hearing!\n\n";
+		($err,$ip,$port,$mc,$data,%vm) = dirty_getmsg;
+
+		print <<X if $err;
+error: $err
+X
+		print <<X if $ip;
+message "$mc" from: $ip:$port
+X
+		if (%vm) {
+			print <<X;
+
+variables:
+X
+			foreach $i (keys %vm) {
+				print "\t$i $vm{$i}\n";
+			}
+		}
+		if ($data) {
+			if (length($data) < 200) {
+				print <<X;
+==============================================================================
+$data
+==============================================================================
+X
+			} elsif (open(O, ">dump")) {
+				print O $data;
+				close O;
+				print "\n", length($data), <<X;
+ bytes of data stored in a file called 'dump'
+X
+			} else {
+				print STDERR <<X;
+could not save data in a file called 'dump': $!
+X
+			}
+		}
+	}
+    }
+}

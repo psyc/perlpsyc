@@ -1,0 +1,53 @@
+# Spliff - Das Blech - remixed by the symLynX
+
+duration 4:40
+open dasBlech.mp3
+sleep .1
+play
+volume 100
+
+#skip PHASE1
+skip INTRO_B
+
+:INTRO_A
+sleep .1
+jump 0
+sleep .8
+jump 1:27.1
+sleep 35
+jump 0
+skip PHASE1
+
+:INTRO_B
+sleep .1
+jump 0
+sleep .6
+jump 1:29.1
+#sleep 2
+#jump 1:58
+#sleep 3.2
+sleep 32.2
+jump 0
+skip PHASE1
+
+:PHASE1
+sleep 2:23.8
+jump 4:34.2
+sleep 2.4
+jump 3:54
+sleep 42
+skip END
+
+:JUNK
+skip IT
+jump 0
+sleep .8
+jump 1
+sleep .2
+:IT
+jump 0
+sleep 1.73
+jump 0
+sleep 1.73
+
+:END

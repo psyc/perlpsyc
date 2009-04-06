@@ -1,0 +1,9 @@
+== PSYCION ==
+- regexp marks
+- documentation of possible keys
+- MultiScreen with proper scrolling
++ psycion.ebuild (split perlpsyc in several ebuilds?)
+  dependencies: dev-perl/IO-Socket-SSL dev-perl/Curses
+- a user misunderstood ~/.psyc/me and only put his nickname into it
+  psycion should complain
+

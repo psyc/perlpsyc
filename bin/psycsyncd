@@ -1,0 +1,158 @@
+#!/usr/bin/perl
+#
+# oops sorry, this is not up to date.
+#
+# what it needs to do:
+#   connect the psyced
+#   make sure it has trust (http://about.psyc.eu/Trust - trusted connection)
+#   if not, use some http://about.psyc.eu/Checksum or better magic
+#   then enter the @sync as described on http://about.psyc.eu/Storage#Storage_Synchronization
+#
+# after that you receive all the _notice_synchronize and can gateway them into your db
+#
+# should you need to send synchronizations into psyced, the interface currently looks
+# completely different: in that case you need to look at http://about.psyc.eu/Remote_control
+
+use strict;
+use Net::PSYC qw(:event W bind_uniform parse_uniform same_host);
+use Net::PSYC::Tie::AbbrevHash;
+use DBI;
+
+my (%params, $driver, $dbname, $username, $password, $dbport, $dbhost, $bind, %react);
+my $VERSION = 44.04;
+use Getopt::Std;
+$Getopt::Std::STANDARD_HELP_VERSION = 1;
+
+$| = 1;
+
+sub VERSION_MESSAGE () {
+    print "This is psycsyncd v$VERSION using Net::PSYC v$Net::PSYC::VERSION\n";
+    print " \$Id: psycsyncd,v 1.13 2007/08/09 18:58:11 lynx Exp $ \n";
+}
+
+sub HELP_MESSAGE () {
+    print <<X;
+Usage: psycsyncd [OPTIONS]
+
+psyc options:
+    -H <host>			host to start listening for incoming psyc
+				synchronization packets.
+    -P <port>			local port to bind to.
+    -b <uniform>		alternatively to -H and -P: psyc uniform
+				to bind to.
+    -A <allowed_host>		host to accept synchronization packets from
+    -T <initial_test>		an SQL query for testing purposes.. preferably 
+				a fetch. data is printed to STDOUT. 
+
+database options:
+    -N <database_name>		name of the database to be used. this is 
+				not optional
+    -D <driver>			name of the database driver to be used.
+				default is 'Pg' for Postgresql. refer
+				to the DBI documentation for more information
+				about drivers.
+    -U <username>		username to connect to the database.
+    -h <host>			host to open the database connection to
+    -p <port>			port of the database connection
+X
+}
+
+getopts('b:A:D:U:P:p:N:H:h:', \%params);
+my %drivers = DBI->installed_drivers();
+$driver = $params{'D'}||'Pg';
+
+unless (1 || exists $drivers{$driver}) {
+    W0('The chosen database driver (%s) is not installed on your system. Possibly a typo. Check the DBI documentation.', $driver);
+}
+
+if (exists $params{'N'}) {
+    $dbname = $params{'N'};
+} else {
+    W0('You have to specify a data-base name.');
+    exit(0);
+}
+
+print "seems to be not too bad. enter the password for the db now.\n";
+print "password: ";
+my $password = readline(*STDIN);
+$password =~ s/[\n\r]$//g;
+
+print "okay, the password is '$password'\n";
+
+$dbname = $params{'N'} ? "dbname=$params{'N'};" : "";
+$dbhost = $params{'h'} ? "host=$params{'h'};" : "";
+$dbport = $params{'p'} ? "port=$params{'p'};" : "";
+$username = $params{'U'};
+my $dbh = DBI->connect("dbi:". $driver .":". $dbname . $dbhost. $dbport,
+		       "$username", "$password",
+		       {AutoCommit => 0});
+
+my $accept_host = $params{'A'}||'localhost';
+
+Net::PSYC::setDEBUG(1);
+
+# provide on -b the same string that you gave psyced in
+# #define PSYC_SYNCHRONIZE ... or do it the other way around,
+# let this script tell you what to provide to psyced.
+$bind = $params{'b'} or do {
+	$params{'P'} ||= 4404;
+	$params{'H'} ||= 'localhost';
+	$bind = 'psyc://'.$params{'H'}.':'.$params{'P'}.'/';
+};
+
+W0("Ready for PSYC_SYNCHRONIZE on %s", $bind);
+
+register_uniform();
+bind_uniform($bind);
+
+sub msg {
+    my ($source, $mc, $data, $vars) = @_;
+
+    unless (same_host(parse_uniform($source)->{'host'}, $accept_host)) {
+	W1('Dropped a packet(%s) from a not-allowed host (%s).', $mc, $source);
+	return;
+    }
+
+    if (exists $react{$mc}) {
+	$react{$mc}->(@_);
+    } else {
+	W1('Dropping a packet(%s) because I have no idea what to do with it.', $mc);
+    }
+}
+
+tie %react, 'Net::PSYC::Tie::AbbrevHash';
+=example
+:_source        psyc://localhost/~jack
+:_target        psyc://localhost:3333c/
+
+:_key_LDAP      roomNumber
+:_value 101
+:_nick  jack
+:_key_set       room
+:_key   _address_room
+_notice_synchronize_set
+[_nick] has set "[_key_set]" to "[_value]".
+=cut
+
+%react = (
+'_notice_synchronize_set' => sub {
+    my ($source, $mc, $data, $vars) = @_;
+
+    # just for debuggin
+    use Data::Dumper;
+    $Data::Dumper::Maxdepth = 1;
+    print Dumper($vars);
+    print "$source wants us to store $vars->{'_key'} as '$vars->{'_key_set'}' for user $vars->{'_nick'}.\n";
+    #
+},
+'_request_synchronize' => sub {
+    my ($source, $mc, $data, $vars) = @_;
+
+    print "$source wants to do some synchronization with us by saying $data.\n";
+},
+);
+
+
+start_loop();
+
+1;

@@ -1,0 +1,309 @@
+#!/usr/bin/perl
+#
+# _request_link is the message that connects a
+# UNL to a UNI - in simple words - that connects
+# a user client to his home server
+
+# only use hard refs, no soft refs (containing a var name to evaluate)
+use strict 'refs';
+# just joking, i don't use refs in here
+
+use Net::PSYC qw( Event=IO::Select );
+# use Net::PSYC::Storage;
+
+require 'getopt.pl';
+&Getopt('tbmcndswhpF');
+# bind_uniform( $opt_b );
+
+$host = $opt_h || 'localhost';
+$port = $opt_p || 4404;
+$nick = $opt_n || 'linkee';
+$password = $opt_w || 'whatever';
+
+# root option
+unless ($server = $opt_r) {
+	$server = "psyc://$host";
+	$server .= ":$port" if $opt_p;
+}
+$target = $opt_t || "$server/~$nick";	# || UNI
+
+# my place. will use first one entered at login.
+my $place = $opt_c;
+my $uni = $target;
+
+$mc = 0;
+$data = '';
+
+if ($opt_m) {
+	$mc = $opt_m;
+	$data = $opt_d if $opt_d;
+} elsif ($opt_d) {
+	$mc = "_request_store";
+	$data = $opt_d;
+} elsif ($opt_c) {
+	$mc = "_request_execute";
+	$data = $opt_c;
+} elsif ($opt_R) {
+	$mc = '_request_retrieve';
+}
+
+## should continue using the lib, but..
+
+# this script is a quick hack to see what my server does
+# once i "link" to him - that is - how things that i do
+# with the UNI (like sending him messages..) are forwarded
+# to the UNL.
+#
+# as you see it doesn't use the library. why? don't remember.
+
+use IO::Socket;
+
+$S = IO::Socket::INET -> new(
+	PeerAddr => $host,
+	PeerPort => $port,
+	Proto	 => 'tcp'
+);
+
+die $! unless $S;
+
+# TODO: TODO
+&receive;   # empty packet
+&receive;   # _notice_circuit_established
+&receive;   # _status_circuit
+&print(".\n");
+
+$service = $opt_s ? "\n:_service\t$opt_s" : '';
+
+# =_source psyc://localhost:2323/~linker
+&print(<<X) unless $opt_F;
+=_target $target
+
+:_tag	testTag
+:_password	$password$service
+_request_link
+.
+=_source_identification	$target
+X
+&print(<<X) if $opt_F;
+:_check_fake	$opt_F
+
+_request_circuit_trust
+.
+=_target $target
+X
+&print(<<X) if $mc;
+
+$mc
+$data
+.
+X
+goto listen_to_love if $opt_l;
+
+
+
+#### START TWEAKING ZONE #### TEST THINGS HERE ####
+
+&print(<<X) if 0;
+
+_request_do_list_peers
+.
+X
+&print(<<X) if 0;
+
+:_amount    7
+:_tag	__________ultratag2000__
+_request_do_show_log
+.
+X
+&print(<<X) if 0;
+
+_request_do_list_users_public
+.
+X
+&print(<<X) if 0;
+
+:_degree_availability	6
+_request_do_presence
+.
+X
+# =_target	psyc://$host:$port/\@TEST$$
+# :_nick_test	xTEST$$
+&print(<<X) if 0;
+
+:_tag\tBurn and Backup
+:_description_place\tWTF
+:_invite\t5:0:;
+:_group\t$server/\@burnandbackup
+_request_do_enter
+.
+X
+&print(<<X) if 0;
+=_target\t$server/\@test
+
+_request_test
+.
+X
+&print(<<X) if 0;
+=_target\t$server/\@sync
+
+_request_enter
+.
+
+:_tag	wurst
+:_nick_local	o$$
+_request_nick_local
+.
+X
+
+&print(<<X) if 0;
+
+:_application_psyclink	Test $$
+:_profession	Tischler
+:_name_family	Test
+:_address_locality  Tananarive
+:_name_prefix	Dr
+:_tag	BUMM
+_request_store
+.
+
+:_tag	BOING
+_request_retrieve
+.
+X
+
+$mc = &receive until $mc =~ /^_status_presence/;
+
+if (0) {
+	&print(<<X);
+:_group\tpsyc://psyced.org/\@tagesschau
+
+_request_do_enter
+.
+X
+	$mc = &receive until $mc =~ /_enter$/;
+}
+
+&print(<<X) if 0;
+:_focus\tpsyc://psyced.org/\@tagesschau
+
+_request_input
+ey bagge
+.
+X
+# :_target    xmpp:lynx\@beta.ve.symlynx.com
+&print(<<X) if 0;
+:_target    psyc://beta.ve.symlynx.com/~lynx
+
+:_experiment_multiline	i am some content
+	and i am the rest of the content.
+_notice_experimental_multiline
+Experiment: [_experiment_multiline].
+.
+X
+&print(<<X) if 0;
+
+_request_input
+auto-hi
+.
+
+_request_execute
+history 7
+.
+X
+&print(<<X) if 0;
+
+:_person    psyc://beta.ve.symlynx.com/~lynx
+_request_do_tell
+auto-hi
+.
+X
+&print(<<X) if 0;
+:_target\t$server/~k
+
+:_nick_target	k
+:_nick	linkee
+_message_private
+auto-hi
+.
+X
+&print(<<X) if 0;
+.
+
+_request_input
+/s
+.
+=_source_identification\t$uni
+:_target_NOT\tpsyc://base.psyced.org/\@x2
+:_target\t$place
+
+:_parameter	yea
+_request_history
+.
+X
+&print(<<X) if 1;
+.
+=_source_identification\t$uni
+=_target\t$uni
+
+:_group\tpsyc://base.psyced.org/\@burnout
+_request_do_enter
+.
+X
+
+if (0) {
+	&print(<<X);
+
+_request_do_exit
+.
+X
+	$mc = &receive until $mc =~ /^_echo_logoff/;
+}
+
+if (0) {
+	&print(<<X);
+:_target	
+
+_request_circuit_shutdown
+.
+X
+	$mc = &receive while $mc;
+	# muve sends stuff after logoff. delayed exit would be cool
+	exit;
+}
+
+#### END TWEAKING ZONE #### STOP TESTING HERE ####
+
+
+
+listen_to_love:
+&receive while love_lasts;
+exit;
+
+
+sub receive {
+	my $mc;
+	while(<$S>) {
+		print ">> $_";
+		if ( /^(\w+)$/ &&! $mc ) {
+			$mc = $1;
+			$place = $relay if $mc =~ /_enter/;
+			$uni = $source if $mc =~ /^_notice_login/;
+		}
+		return $mc if /^\.\s?$/;
+		$relay = $1 if /^._source_relay\t(\S+)$/;
+		$source = $1 if /^._source\t(\S+)$/;
+	}
+	print STDERR "*** Socket shutdown by server ***\n";
+#	return undef;
+	exit;
+}
+
+sub print {
+	my $text = shift;
+	print $S $text;
+#	$text =~ s/^(.)/<< \1/mg;
+	print $text;
+}
+
+sub love_lasts { 1; }
+

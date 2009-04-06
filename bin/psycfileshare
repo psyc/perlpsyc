@@ -1,0 +1,31 @@
+#!/usr/bin/perl -I ../lib/perlxt
+
+use strict;
+
+use Net::PSYC qw(bind_uniform register_uniform send_file :event);
+use Net::PSYC::FileShare;
+use Getopt::Std;
+
+my (%params);
+
+getopts('p:d:s:', \%params);
+
+$params{'s'} ||= $ENV{'HOME'};
+
+unless (set_store_dir($params{'s'})) {
+    die "Could not use $params{'s'} as store-dir. Maybe you dont have write "
+	."access there!\n";
+}
+
+if ($params{'d'}) {
+    Net::PSYC::setDEBUG($params{'d'});
+}
+
+bind_uniform('psyc://:'.($params{'p'}||4404)) or
+    die;
+register_uniform();
+
+start_loop();
+
+
+1;

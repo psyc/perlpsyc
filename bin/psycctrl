@@ -1,0 +1,124 @@
+#!/usr/bin/perl -I/ve/perlpsyc/lib/perl5
+#
+# usage: psycctrl [<flags>] <setting> <value>
+#
+# flags are
+#	[-h <host>]		; host to connect to (default 127.1)
+#	[-p <port>]		; port to connect to (default 4404)
+#	[-t <uniform>]		; target entity to be controlled
+#	[-m <method>]		; method to send, default _request_do_set
+#	[-s <secret>]		; shared secret with the target server
+#	[-b <uniform>]		; how to bind this script (usually irrelevant)
+#
+# this script uses the http://about.psyc.eu/Checksum procedure to gain trust
+# with a remote server, then uses http://about.psyc.eu/Remote_control to
+# change a /set setting in an entity.
+#
+# TODO: implementation of _check_MD5 unfortunately not properly within the
+# library, so it is using its own socket. also we should be using
+# _check_SHA256 instead
+#
+# Ironically, by doing raw PSYC this script serves better as a tutorial
+# on how to do simple remote control scripts for PSYC (in any other language).
+
+require 5.000;
+#use Net::PSYC;
+use IO::Socket;
+use Digest::MD5 qw(md5_hex);
+
+require 'getopt.pl';
+&Getopt('tbmshp');
+
+$binder = $opt_b || 'psyc://:0d/';	# get yourself any udp port on local ip
+					# talk to local psyced (default)
+# remember that localhost is trusted by default anyway,
+# so you have to disable that default trust before you go
+$target = $opt_t || 'psyc://127.1:4404d/';
+$method = $opt_m || '_request_do_set';
+
+$secret = $opt_s || 'testsecret';	# secret of my server
+$host = $opt_h || '127.1';		# where to connect to
+$port = $opt_p || 4404;			# (should be extracted from $target)
+
+#bind_uniform( $binder );
+#print "sendmsg '$target', '$method',\n" if $opt_v;
+#return if $opt_n;
+#$rc = sendmsg ($target, $method, $_); # , { _kilroy => 'woz ere' } );
+#die "sendmsg returns $rc" if $rc;
+
+my $S = IO::Socket::INET -> new(
+	PeerAddr => $host,
+	PeerPort => $port,
+	Proto	 => 'tcp'
+);
+die $! unless $S;
+
+my $mc;
+$mc = &receive until $mc =~ /^_status_circuit/;
+
+my $t = <<X;
+
+_request_circuit_trust
+I want to gain your trust.
+X
+my $c = md5_hex($secret . $t);
+chomp $t;
+#print STDERR "*** Checksum: $c ***\n";
+&print(<<X);
+.
+:_check_MD5	$c
+$t
+.
+X
+
+$mc = &receive;
+exit -3 if $mc !~ /^_echo_circuit_trust/;
+
+&print(<<X);
+:_target	psyc://$host/\@sync
+
+:_nick	psycctrl$$
+_request_enter
+.
+X
+&receive;
+
+my $key = shift;
+my $value = join ' ', @ARGV;
+if ($key && $value) {
+	&print(<<X)
+:_target	$target
+
+:_key_set	$key
+:_value	$value
+_request_do_set
+.
+X
+}
+
+$mc = &receive until $mc =~ /^_notice_place_leave/;
+&print(<<X) if 1;
+
+_request_circuit_shutdown
+.
+X
+$mc = &receive while $mc;
+exit;
+
+sub receive {
+	my $mc;
+	while(<$S>) {
+		print ">> $_";
+		$mc = $1 if /^(\w+)$/ &&! $mc;
+		return $mc if /^\.\s?$/;
+	}
+	print STDERR "*** Socket shutdown by server ***\n";
+	return undef;
+}
+
+sub print {
+	my $text = shift;
+	print $S $text;
+#	$text =~ s/^(.)/<< \1/mg;
+	print $text;
+}

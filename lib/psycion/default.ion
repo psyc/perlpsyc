@@ -1,0 +1,56 @@
+# colors make a chat much easier to read, like syntax highlighting.. really!
+# these are some default color definitions.
+# most of these are used for the multiscreen version of psycion only.
+# TODO maybe we should allow rgb values.
+
+mark method _ION_default	white on_black
+mark method _ION_status		white on_blue
+mark method _ION_decoration_current	white on_blue bold
+mark method _ION_decoration_active	yellow on_blue
+mark method _ION_scrollbar_background	on_red white
+mark method _ION_scrollbar	on_white black
+
+mark method _message_public	white
+mark method _message_private	red
+mark method _message_echo	green
+mark method _notice_place	blue
+mark method _warning		red
+mark method _failure		red
+mark method _error		red on_white
+mark method _status		yellow
+#mark _notice_update	on_dark yellow
+mark method _notice		yellow
+
+mark variable _nick	bold
+#+mark ignorecase el	red
+
+# these two give you hints of what more can be done
+# #mark _notice   on_blue white
+#template _notice	[_method] « [_data] »
+template _notice	»» [_data]
+template _notice_place	[_data]
+template _notice_news_headline	[_data]
+template _notice_update	[_data]
+template _notice_email_received [_data]
+
+template _message_private	[? _time] [_time] [;]<*[_nick][? _action] [_action][;]*> [_data]
+template _message_public	In [_nick_place]:[? _time] [_time] [;]<[_nick][? _action] [_action][;]> [_data]
+template _message_public_active	[? _time] [_time] [;]<[_nick][? _action] [_action][;]> [_data]
+template _message_echo_private	*>[_nick_target]> [_data]
+template _message_echo_public	[? _action][_action][;]> [_data]
+
+# maybe we should fill the completion buffer out of _members and _friends
+# in the meantime here's something that's always useful..
+complete psyc://
+complete http://
+
+alias	r	reply
+alias	c	change-window
+
+# feature wish: share history between windows so i can repost the same
+# input to a different target ... or should we have a cut+paste buffer
+# for that? ah.. sometimes you have to repost a whole conversation..
+# well in that case fumbling with arrows is ugly anyway.. so maybe cut+
+# paste whole parts of history.. hmm
+set histshare
+

@@ -1,0 +1,15 @@
+#!/usr/bin/perl -I ../lib/perlxt
+
+use strict;
+
+use Net::PSYC qw(send_file);
+use Getopt::Std;
+
+Net::PSYC::setDEBUG(1);
+
+my $target = pop @ARGV;
+my $file = pop @ARGV;
+
+send_file($target, $file) or die "sending the file failed: $!\n";
+
+1;

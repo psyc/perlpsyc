@@ -1,0 +1,82 @@
+#!/usr/bin/perl
+    eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
+	if $running_under_some_shell;
+
+# a cool way to list mpeg files, especially for grepping.	-lynx
+#
+# commands:
+# 	-l(ocate) = use locate to find all mp3s on this computer
+# 	-i(ndex) = use hostname-based presets
+#	-z for optimized indexing of non-mpeg files
+#	-p(ath only) = only output files with path, for .m3u creation
+#
+# options:
+# 	-c(drom) = cd to /cdrom before starting
+# 	-h(ypertext) = produce HTML output
+# 	-x(clusive) = ignore all non-mpeg files
+# 	-E(mpty) = skip empty files
+# 	-v(erbose)
+# 	-D(elete) = CAUTION! deletes all mp3s of 'L' low quality
+#
+
+use MP3::List;
+my $sumTime = 0;
+
+main: {
+	require 'find.pl';
+
+	# most unices do it wrong, apparently
+	$File::Find::dont_use_nlink = 'DONT!';
+
+	if ($#ARGV >= 0) {
+                require 'getopt.pl';
+                &Getopt(0);
+		chdir ('/cdrom') if $opt_c;
+		goto locate if $opt_l;
+		if ($opt_i) {
+			my $label = shift || $ENV{HOST};
+			goto uc($label);
+		}
+	}
+	goto end;
+FLY:	;
+	; # fall thru
+locate:
+	&find(grep(/\.mp3$/, split(/\n/,
+		   `/usr/bin/locate \.mp3`)));
+	&find(@ARGV) if @ARGV;
+	exit;
+GROTTA:
+	push @ARGV, '/F';
+	push @ARGV, '/fat/Eigene Dateien/mp3';
+	goto end;
+LEECH:
+	# it doesn't follow symlinks..
+	push @ARGV, '/fat/LOCAL', '/thin/LOCaL';
+	goto end;
+KLOTZ:
+	push @ARGV, '/fat/';
+	# fall thru
+end:
+	&find(@ARGV ? @ARGV : '.');
+	if ($sumTime) {
+		my $SS = int $sumTime % 60;
+		my $M2 = int $sumTime / 60;
+		my $HH = int $M2 / 60;
+		my $MM = int $M2 % 60;
+		printf "TOTAL\t%5d:%.2d  (= %.2d:%.2d:%.2d)\r\n",
+		    $M2,$SS, $HH,$MM,$SS;
+	}
+}
+
+#%already_seen = ();
+
+sub wanted {
+	return $prune = 1 if /\bVOLATIL[eE]\b/ and $opt_x;
+#	print STDERR "$_\n";
+	my ($out, $dur) = &MP3::List::format($_, $name, $opt_z, $opt_x, $opt_v,
+					     $opt_h, $opt_D, $opt_p, $opt_E);
+	$sumTime += $dur;
+	print $out;
+}
+

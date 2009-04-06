@@ -1,0 +1,146 @@
+# basic settings for reasonable psycion performance
+#
+set echo on
+
+# Comments show the standard key bindings (borrowed from tcsh bindkey)
+# "^A"           ->  beginning-of-line
+bind <C-a>    &beginning-of-line
+
+# "^B"           ->  backward-char
+bind <C-b>    &backward-char
+
+# "^C"           ->  exit
+bind <C-c>    &exit
+#bind Esc    &shutdown
+bind <C-d>	mode()
+# "^D"           ->  delete-char
+#bind <C-d>	&delete-char 
+bind <Del>	&delete-char 
+
+# "^E"           ->  end-of-line
+bind <C-e>	&end-of-line
+
+# "^F"           ->  forward-char
+bind <C-f>	&forward-char
+# next:
+## bind C-f    &forward-char-or-follow-conversation
+
+# "^G"           ->  self-insert-command (optional)
+
+# "^H"           ->  backward-delete-char
+bind <BS>	&backward-delete-char
+# redundant?
+#bind C-h    &backward-delete-char
+
+# "^I"           ->  complete-word
+#bind Tab    &complete-or-forward-window  ....TODO
+bind <Tab>	&complete
+# redundant, too?
+#bind C-i    &complete-word
+
+# "^J"           ->  submit
+bind <Ret>	&submit
+#bind C-j    &submit
+
+# "^K"           ->  kill-line (= delete-until-end-of-line, important!)
+bind <C-k>	&kill-line
+
+# "^L"           ->  clear-screen
+bind <C-l>	&clear-screen
+
+# "^M"           ->  submit
+bind <C-m>	&submit
+
+# "^N"           ->  down-history
+bind <C-n>	&down-history
+
+# "^O"           ->  tty-flush-output (optional)
+
+# "^P"           ->  up-history
+bind <C-p>	&up-history
+
+# "^Q"           ->  tty-start-output (optional)
+# "^R"           ->  redisplay (repaint whole screen, optional)
+bind <C-r>	&reply
+# "^S"           ->  tty-stop-output (optional)
+bind <C-s>	&command
+# "^T"           ->  transpose-chars (optional)
+bind <C-t>	&execute(status)
+
+# "^U"           ->  kill-whole-line (clear-line)
+# del-line doesn't delete it from the screen, but it does from the buffer (bug?)
+bind <C-u>	&kill-whole-line
+
+# "^V"           ->  quoted-insert (optional for psyc use)
+# "^W"           ->  kill-region (delete-until-beginning-of-line, optional)
+
+
+# "^X"           ->  
+# we could use C-x as meta command character just like ircII does
+# so the user can define macros like
+#bind M-g *grin*
+# or we can use C-x as command mode escape character. hmmm!
+# or we can use C-x as /change command to be transmitted as _request_execute
+## bind C-x &execute CHANGE
+bind <C-x>	&change-room
+# "^Y"           ->  yank (= insert last deleted portion of text, optional)
+# "^Z"           ->  suspend
+# "^?"           ->  backward-delete-char
+#bind <C-?>	&backward-delete-char # unknown key? why?   FIXME
+
+# Multi-character bindings (skipped)
+#
+# Arrow key bindings
+# down           -> history-search-forward
+#			^-- history search is different from up/down and cool!
+bind <Down>	&down-history
+# up             -> history-search-backward
+bind <Up>	&up-history
+# left           -> backward-char
+bind <Left>	&backward-char
+# right          -> forward-char
+bind <Right>	&forward-char
+# home           -> beginning-of-line
+bind <Home>	&beginning-of-line
+# end            -> end-of-line
+#bind <End>	&end-of-line	# unknown key? why? FIXME
+#
+# <esc><key> is a workaround for all the <alt-Left> like combinations
+bind <esc><left>	&backward-window
+bind <esc><right>	&forward-window
+# these are here to keep them from accidentally
+# self-inserting. they may one day do something useful
+bind <esc><up>		&up-history
+bind <esc><down>	&down-history
+# these two do not work.. but they should!? TODO L8R
+bind <alt-p>	&backward-window
+bind <alt-n>	&forward-window
+
+bind <a-1>	&change-window(0)
+bind <a-2>	&change-window(1)
+bind <a-3>	&change-window(2)
+bind <a-4>	&change-window(3)
+bind <a-5>	&change-window(4)
+bind <a-6>	&change-window(5)
+bind <a-7>	&change-window(6)
+bind <a-8>	&change-window(7)
+bind <a-9>	&change-window(8)
+bind <a-0>	&change-window(9)
+# unknown keys?
+#bind <F1>	&change-window(1)
+#bind <F9>	&change-window(9)
+
+#scrolling. i forgot that
+
+bind 	<pu>	&scroll-up
+bind	<pd>	&scroll-down
+
+# how can i filter them completely? this looks neat, too..
+template    _ION_verbose    |
+
+#
+# try to find these files and execute them as scripts
+# if you can't find them, don't say much about it
+load default.ion
+load ~/.psyc/my.ion
+

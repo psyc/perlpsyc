@@ -1,0 +1,63 @@
+#!/usr/bin/perl -I/ve/perlpsyc/lib/perl5
+#
+# usage: psyccmd [-t <uniform>] [-b <uniform>] [-m <method>] [<command>]
+#   or
+# usage: psycplay [-t <uniform>] [-b <uniform>] <file>
+#
+# other options:
+#	-v(erbose)
+#	-n(o_action)
+#
+# this little thing sends _request_execute containing
+# what you provide on the command line (or with every
+# line of stdin) to a psyc entity given by option,
+# or to the local port 1144 which i use for the
+# jukebox server psycmp3
+#
+# i use this with "alias p psycplay" for quick submitting
+# of music to the player
+
+require 5.000;
+use Net::PSYC;
+
+require 'getopt.pl';
+&Getopt('tbm');
+
+$binder = $opt_b || 'psyc://:0d/';	# get yourself any udp port on local ip
+					# talk to local psycmp3 (default)
+$target = $opt_t || 'psyc://127.1:1144d/';
+$method = $opt_m || '_request_execute';	# commands are kind requests
+					# for execution in PSYC
+
+bind_uniform( $binder );
+print "sendmsg '$target', '$method',\n" if $opt_v;
+
+if ($opt_p || $0 =~ /play/i) {
+	require 'pwd.pl';
+	&initpwd;
+	$opt_p = 1;
+}
+
+if ($#ARGV >= 0) {
+	$_ = join( ' ', @ARGV );
+	&go( $_ );
+} else {
+	while(<STDIN>) {
+		chomp;
+		&go($_);
+	}
+}
+
+
+sub go {
+	$_ = shift;
+	if ($opt_p) {
+		$_ = "$ENV{'PWD'}/$_" unless m§^/§ || m§^\w:/§;
+		$_ = "open $_";
+	}
+	print "\t'$_'\n" if $opt_v;
+	return if $opt_n;
+	$rc = sendmsg ($target, $method, $_); # , { _kilroy => 'woz ere' } );
+	die "sendmsg returns $rc" if $rc;
+}
+

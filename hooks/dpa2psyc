@@ -1,0 +1,207 @@
+#!/usr/bin/perl -I/usr/local/lib/perlxt
+# remove -w when productive, insert -w when debugging
+
+# MAIL FILTER FOR DELIVERY OF DPA NEWS HEADLINES VIA PSYC
+#
+# this script is intended to be run off /etc/aliases or
+# equivalent to process dpa news stories as they arrive
+# in email format and produce both web pages and psyc
+# notices which are more pleasant to receive than tons of mail,
+# and when used with proper PSYC multicast scale a lot better
+# than mailing lists.
+#
+# DPA is the leading german news agency. the parsing deals
+# with the "kurznachrichten" service as provided by the dpa
+# company "newsaktuell". the PSYC gateway is part of the
+# www.presseportal.de project.
+#
+# for reasons of efficiency HTML layout is "softcoded" into
+# this script instead of using some complex layouting engine.
+# it's inefficient enough to launch a perl interpreter for
+# every incoming dpa mail.
+
+require 5.000;
+use strict;
+
+&Filter::DPA::run;
+exit;
+
+package Filter::DPA;
+use Net::PSYC;
+
+## CONFIG ZONE
+
+# where do we deliver the stuff to?
+sub prefix () { 'psyc://127.0.0.1/@dpa-' }
+# what address do we bind for ourselves?
+sub binder () { 'psyc://127.0.0.1:0d/' }
+# which psyc method do we use?
+sub method () { '_notice_news_headline' }
+
+# where do we put the html?
+sub dir () { '/PROJEKTE/lynx/presse' }
+# how does the outer world find it?
+sub urlbase () { 'http://presse.pages.de/' }
+#ub urlbase () { 'file:'. dir .'/' }
+
+# how many messages in the index?
+sub amountnews () { 7 }
+
+# where do we ftp-push the html?
+sub ftphost () { '212.122.133.31' }
+sub ftpuser () { 'presseadm' }
+sub ftppass () {
+	my $pw; local(*P);
+	if (open(P, '/home/lynx/.popass')) {
+		$pw = <P>;
+		close P;
+	}
+	return $pw;
+}
+
+sub debug () { 0 }
+sub dolog () { 1 }
+
+## END CONFIG ZONE
+
+sub run {
+    my (@rs, @nr, @pa, @hl, @tx, @url);
+    my $i = 0;
+    local(*O);
+    bind_uniform( binder );
+
+    while (defined($_ = <>)) {
+	if (/^hfk(\d+)\s+(\d+)\s+(\w+)\s+(\d+)\s+dpa-kurz\s+(\d+)\b(.*)\s+$/) {
+	    $rs[$i] = $3;
+	    $nr[$i] = $5;
+	    my $onr = $6;
+	    # $nr[$i] = $1 if $6 && $6 =~ /\s*zu\s+(\d+)\b/;
+	    next unless <> =~ /^\s+$/;
+	    $pa[$i] = <>;
+	    next if $pa[$i] =~ /^dpa/;
+	    next unless $pa[$i] =~ s:/\s*$::;
+	    $hl[$i] = <>;
+	    next unless $hl[$i] =~ s/\s*=\s*$//;
+	    next unless <> =~ /^\s+$/;
+	    $tx[$i] = '';
+	    while (defined($_ = <>)) {
+		if (/^dpa\s/) {
+		    while (defined($_ = <>)) {
+			if (/^(\d\d)(\d\d)(\d\d)\s+(\w+)\s+(\d+)\b/) {
+			    $tx[$i] .= "\t\t\t\t\t\t$1.$4.$5 $2:$3\n";
+			    last;
+			}
+			last if /\S/;
+		    }
+		    last;
+		}
+		if (/^From /) {
+		    # skip mail header if present
+		    $_ = <> while defined and /\S/;
+		    next;	# break out of this "while"
+		}
+		$tx[$i] .= $_;
+	    }
+	    $tx[$i] =~ s/\s+$//;
+	    print STDERR <<X if debug;
+
+$nr[$i] - $rs[$i] - $pa[$i] -
+	$hl[$i]
+X
+	    chdir(dir);
+	    if (open (O, ">$nr[$i].html")) {
+# <title>\U$rs[$i]\E $pa[$i] $hl[$i]</title>
+		print O <<X;
+<title>presseportal: dpa Kurzmeldung</title>
+<body bgcolor="#ffcc99">
+<pre><b>$hl[$i]</b>
+
+$tx[$i]</pre>
+X
+		close O;
+		$url[$i] = urlbase . $nr[$i] .'.html';
+	    }
+	    if (dolog and open(O, '>>.log')) {
+		print O time, <<X if dolog;
+	$url[$i]	$nr[$i]	$rs[$i]	$pa[$i]	$hl[$i]
+X
+		close O;
+	    }
+	    my %v;
+	    $v{_nick} = 'newsaktuell';
+	    $v{_news_path} = $pa[$i];
+	    $v{_news_number} = $nr[$i];
+	    $v{_news_headline} = $hl[$i];
+
+	    # if ($url[$i]) { $v{_page_link} = $url[$i]; }
+	    # else { $v{_problem} = $! ? $! : $@; }
+
+	    unless( $v{_page_link} = $url[$i] ) {
+		$v{_problem} = $! ? $! : $@;
+	    }
+	    my $rc = sendmsg (prefix.$rs[$i], method, <<X, \%v);
+[_news_path]: [_news_headline] ([_page_news])
+X
+	    $i++;
+	}
+	# skip all junk around "dpa-kurz"
+    }
+    return unless $i; # no messages found!
+
+    local(*IX);
+    open(IX, '>.index.new');
+    open(O, '>index.inc');
+    print O <<X;
+<script> <!--
+
+function clik(what) {
+  window.open(what,'dpakurz',
+    'width=600,height=200,location=no,menubar=no,resizable=yes,scrollbars=yes')
+}
+
+// --> </script>
+X
+    for (my $j = $i; $j && $j > $i - amountnews;) {
+	--$j;
+	&index( $url[$j], $nr[$j], $rs[$j], $pa[$j], $hl[$j] );
+    }
+    local(*I);
+    if ($i < amountnews && open(I, '.index')) {
+FOO:	{
+	    do {
+		my $in = <I>;
+		last FOO unless defined $in;
+		chomp $in;
+		&index( split(/\t/, $in) );
+	    } until ++$i == amountnews;
+	}
+	close I;
+    }
+    close IX;
+    close O;
+    rename('.index.new', '.index');
+    # if ftphost is not defined the whole ftp thing is optimized away
+    if (ftphost) {
+	use Net::FTP;
+	my $ftp;
+	$ftp = Net::FTP->new(ftphost);
+	$ftp->login(ftpuser, ftppass);
+	$ftp->put('index.inc', 'dpa.inc');
+	$ftp->quit;
+    }
+}
+
+sub index () {
+    my ($url, $nr, $rs, $pa, $hl) = @_;
+    print STDERR <<X if debug;
+$url	$nr	$rs	$pa	$hl
+X
+    print IX <<X;
+$url	$nr	$rs	$pa	$hl
+X
+    print O <<X;
+<a class=dpa href="javascript:clik('$url')">$pa</a>: $hl<br>
+X
+}
+
+

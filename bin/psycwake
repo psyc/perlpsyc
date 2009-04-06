@@ -1,0 +1,71 @@
+#!/usr/bin/perl
+#
+# usage:
+#	 echo "psycwake <uni>" | at <time>
+
+require 'getopt.pl';
+&Getopt('tbmpn');
+
+$target  = $opt_t || '127.1';
+$method  = $opt_m || '_notice_wake';
+
+$port    = $opt_p || 4404;		# schrott
+$nick	 = $opt_n;			#    "
+
+my $text = shift || "You have been $0'd from $ENV{USER}\@$ENV{HOST}.";
+
+if ($target =~ m!^psyc://([^/]+)!i) {
+	$remote = $1;
+	($remote, $port) = ($1,$2) if $remote =~ m!^([^:]+):(\d+)\b!;
+} elsif ($target =~ m:^(\w+)\@(\S+)$:i) {
+	$remote = $2;
+	$target = "psyc://$remote/~$1";
+} else {
+	$remote = $target;
+	$target = "psyc://$remote";
+	$target .= "/~$nick" if $nick;
+}
+
+if ($port =~ /\D/) { $port = getservbyname($port, 'tcp') }
+die "No port" unless $port;
+
+# perl4 code is commented out here
+#
+# $iaddr = (gethostbyname($remote))[4]		|| die "no host: $remote";
+# $sockaddr = 'S n a4 x8'; $paddr = pack($sockaddr, 2, $port, $iaddr);
+# socket(S, 2, 1, 6)				|| die "socket: $!";
+#
+use Socket;
+$iaddr   = inet_aton($remote)			|| die "no host: $remote";
+$paddr   = sockaddr_in($port, $iaddr);
+socket(S, PF_INET, SOCK_STREAM, getprotobyname('tcp')) || die "socket: $!";
+
+connect(S, $paddr)				|| die "connect: $!";
+select S; $|=1; select STDOUT;
+
+#$sender = $ENV{HOST} || '';
+#$sender .= 'Mail';
+
+print S <<X;
+.
+X
+
+#if (defined($_ = <S>) && !/^\./) {
+#	print if s/^=//;
+#}
+#while (defined($_ = <S>) && !/^\./) {
+#	print if s/^=//;
+#}
+#print "\n";
+
+print S <<X;
+=_target	$target
+
+$method
+$text
+.
+X
+
+close (S)					|| die "close: $!";
+exit;
+

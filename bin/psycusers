@@ -1,0 +1,88 @@
+#!/usr/bin/perl -I/ve/perlpsyc/lib/perl5
+#
+# ask a locally running psyced how many users are currently online
+
+require 5.000;
+use Net::PSYC qw( :event :base );
+
+require 'getopt.pl';
+&Getopt('tbmd');
+
+$DEBUG = $opt_d;
+Net::PSYC::setDEBUG($DEBUG) if $DEBUG;
+
+# let's get interactive, set up some PSYC ports
+#
+# //: means let the kernel pick one of this host's ip numbers
+#  :0 means let the kernel pick a port number (default is to allocate 4404)
+#  :d means no need to set up a tcp port, just the [d]atagram (udp) port
+#
+bind_uniform( $opt_b || "psyc://:0/\$$0" );
+register_uniform(); # get everything
+
+# shows how to do add own fds into the select-wrapper
+add( \*STDIN, 'r', \&stdin );
+
+$rc = sendmsg(	$opt_t || 'psyc://localhost/',
+		$opt_m || '_query_users_amount' );
+die "send: $rc" if $rc;
+
+# so far it's been easy, now let's receive some data
+start_loop();
+
+sub stdin {
+	my $bla = <STDIN>;
+	print <<X;
+you typed: $bla
+reason enough for me to quit my life.
+X
+	exit(1);
+}
+
+sub msg {
+	my ($source, $mc, $data, $vars) = @_;
+	print psyctext($data, $vars), "\n";
+	exit if $mc =~ /_users/;
+}
+
+__END__
+
+do {
+	@ready = dirty_wait(10.0);
+	if ($ready[0] == *STDIN) {
+		shift @ready;
+		my $bla = <STDIN>;
+		print <<X;
+you typed: $bla
+reason enough for me to quit my life.
+X
+		exit(1);
+	} else {
+		# doesn't look too beautiful, i admit..
+		($err,$ip,$port,$mc,$data,%vm) = dirty_getmsg;
+		print "i survived dirty_getmsg\n" if $DEBUG;
+
+		print <<X if $ip;
+message "$mc" from: $ip:$port
+X
+		print <<X if $err;
+error: $err
+X
+		if (%vm) {
+			print <<X;
+
+variables:
+X
+		foreach $i (keys %vm) {
+			print "\t$i $vm{$i}\n";
+		}
+
+		print <<X if $data;
+==============================================================================
+$data
+==============================================================================
+X
+		}
+	}
+} until $mc =~ /_users/;
+
