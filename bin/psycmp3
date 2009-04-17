@@ -598,7 +598,7 @@ X
 			$1 eq 'S' ? 'SECONDARY' : 'REPERTOIRE';
 		my $f = $CurrentFile;
 		$f = $ENV{PWD}. '/'. $f unless $f =~ m!^/!;
-		unless ($f =~ s:\b(SHARE|COMPLETE|OUT|NEW|SEEK|CD|TODO)\b:$t:i)
+		unless ($f =~ s:\b(SHARE|COMPLETE|KEEP|SECONDARY|REPERTOIRE|NEW|SEEK|TODO)\b:$t:i)
 		{
 			print "» not applicable for $f\n";
 			next;

@@ -3,7 +3,7 @@
 # psyc notification script for git repositories, written by the lynX
 # based on cvs2psyc and bartman's sender-side post-commit hook.
 #
-# it simply uses git-log to find out where it stands. for more elaborate
+# it simply uses git log to find out where it stands. for more elaborate
 # ways, find inspiration in contrib/hooks/post-receive-email from the git
 # distribution.
 #
@@ -25,7 +25,7 @@ $target  = 'psyc://ve.symlynX.com/@test';
 
 # let's extract the juice of this commit from the last log item
 my ($bighash, $hash, $name, $email, $comment) = split('§',
-		`git-log -n1 --pretty=format:"%H§%h§%an§%ae§%s"`);
+		`git log -n1 --pretty=format:"%H§%h§%an§%ae§%s"`);
 
 die <<X unless $hash;
 $0 is meant to be issued from a GIT post-receive hook.

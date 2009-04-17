@@ -15,6 +15,7 @@
 # 	-h(ypertext) = produce HTML output
 # 	-x(clusive) = ignore all non-mpeg files
 # 	-E(mpty) = skip empty files
+#	-q(uiet) = no progress output
 # 	-v(erbose)
 # 	-D(elete) = CAUTION! deletes all mp3s of 'L' low quality
 #
@@ -45,7 +46,16 @@ locate:
 	&find(grep(/\.mp3$/, split(/\n/,
 		   `/usr/bin/locate \.mp3`)));
 	&find(@ARGV) if @ARGV;
-	exit;
+	goto summary;
+FATBOX:
+	push @ARGV, '/mnt/fatbox';
+	goto end;
+LUXBOX:
+	push @ARGV, '/mnt/luxbox';
+	goto end;
+BOX:
+	push @ARGV, '/mnt/box';
+	goto end;
 GROTTA:
 	push @ARGV, '/F';
 	push @ARGV, '/fat/Eigene Dateien/mp3';
@@ -54,11 +64,17 @@ LEECH:
 	# it doesn't follow symlinks..
 	push @ARGV, '/fat/LOCAL', '/thin/LOCaL';
 	goto end;
+SLIME:
+	push @ARGV, '/mnt/ntfs/LoCAL', '/thin/LoCAL', '/mnt/xfs/mp3';
+	goto end;
 KLOTZ:
 	push @ARGV, '/fat/';
 	# fall thru
 end:
 	&find(@ARGV ? @ARGV : '.');
+	# fall thru
+summary:
+	print STDERR "\n";
 	if ($sumTime) {
 		my $SS = int $sumTime % 60;
 		my $M2 = int $sumTime / 60;
@@ -71,12 +87,32 @@ end:
 
 #%already_seen = ();
 
+sub progress {
+	return if $opt_q;
+	my $tx = join('', @_);
+	my $len = length $tx;
+	$tx = "...". substr($tx, length($tx)-73) if $len > 75;
+	unless ($opt_q) {
+		print STDERR "\r", $tx, ' ', '_' x (75-$len), ' ' if $len < 75;
+#		print "\n" if DEBUG & 1;
+	}
+}
+
 sub wanted {
-	return $prune = 1 if /\bVOLATIL[eE]\b/ and $opt_x;
-#	print STDERR "$_\n";
+	# strange ntfs problems apparently.. this is needed to index slime's ntfs
+#	if ($opt_x and /\b(RECYCLER|VOLATILE|avp\.fi|fuckyuo|tetsuo)\b/i) {
+	if ($opt_x and /\b(RECYCLER|VOLATILE|Audio_Archive|grotta_\w+|leech_\w+|slime_\w+)\b/i) {
+		print STDERR "\r[pruning $name]\n";
+		return $prune = 1
+	}
+	progress($name);
+	# strange ntfs problems apparently.. this is needed to index slime's ntfs
+#	return if /^(Ober_Control_-_I_v_been_told|Austrofred|tony.telex)/;
 	my ($out, $dur) = &MP3::List::format($_, $name, $opt_z, $opt_x, $opt_v,
 					     $opt_h, $opt_D, $opt_p, $opt_E);
-	$sumTime += $dur;
-	print $out;
+	if ($out) {
+		$sumTime += $dur;
+		print $out;
+	}
 }
 

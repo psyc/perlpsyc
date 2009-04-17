@@ -66,11 +66,12 @@ $S = IO::Socket::INET -> new(
 
 die $! unless $S;
 
-# TODO: TODO
+# new order of things.. the connecting side greets the receiver!
+&print(".\n");
+
 &receive;   # empty packet
 &receive;   # _notice_circuit_established
 &receive;   # _status_circuit
-&print(".\n");
 
 $service = $opt_s ? "\n:_service\t$opt_s" : '';
 
@@ -120,7 +121,7 @@ X
 _request_do_list_users_public
 .
 X
-&print(<<X) if 0;
+&print(<<X) if 1;
 
 :_degree_availability	6
 _request_do_presence
