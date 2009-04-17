@@ -1,0 +1,117 @@
+#!/usr/bin/perl
+# nagios2psyc
+# psyc notification script for nagios, written by Gabor Adam Toth <psyc://x-net.hu/~tg>
+# based on git2psyc and rss4nagios.
+#
+# CONFIGURATION
+# - set address<x> directives in contact definitions
+# - add notify-by-psyc command and set service/host_notification_commands
+# - edit and copy psyc.cfg to /etc/nagios
+#
+# this script uses nagios environment variables,
+# enable it by setting enable_environment_macros=1 in nagios.cfg (or set manually at the command_line with NAGIOS_FOO="$FOO$")
+# for some reason i had to set an additional dummy env var to enable it:
+#
+# define command {
+#	command_name    notify-by-psyc
+#	command_line    NAGIOS_ENV=1 /usr/local/bin/nagios2psyc
+# }
+
+#use warnings;
+use strict;
+use URI::Escape;
+use Socket;
+
+{ package Settings; do "/etc/nagios/psyc.cfg" }
+
+my $dir = uc($Settings::contact_directive);
+my $target = $ENV{"NAGIOS_CONTACT$dir"};
+#exit if contact has no psyc address defined
+exit unless $target;
+
+#use Data::Dumper;
+#open LOG, '>>/tmp/nagios-psyc.log';
+#print "target: $target\n\n";
+#print LOG Dumper(\%ENV);
+#close LOG;
+
+my ($method,$data,$ack,%packet);
+$ack = "ACKNOWLEDGEMENT" if $ENV{NAGIOS_NOTIFICATIONTYPE} eq "ACKNOWLEDGEMENT";
+
+if ($ENV{NAGIOS_SERVICESTATE}) {
+	%packet = (
+		_state		=> $ack || $ENV{NAGIOS_SERVICESTATE},
+		_host		=> $ENV{NAGIOS_HOSTNAME},
+		_desc		=> $ENV{NAGIOS_SERVICEDESC},
+		_output 	=> $ENV{NAGIOS_SERVICEOUTPUT},
+		_ackauthor	=> $ENV{NAGIOS_SERVICEACKAUTHOR},
+		_ackcomment	=> $ENV{NAGIOS_SERVICEACKCOMMENT},
+		_url		=> "${Settings::nagios_url}?type=2&host=$ENV{NAGIOS_HOSTNAME}&service=".uri_escape($ENV{NAGIOS_SERVICEDESC}),
+	);
+	$method = "_notice_service_" . lc $packet{_state};
+	$data = "SERVICE [_state]: [_host] [_desc] [_url]";
+
+} elsif ($ENV{NAGIOS_HOSTSTATE}) {
+	%packet = (
+		_state		=> $ack || $ENV{NAGIOS_HOSTSTATE},
+		_host		=> $ENV{NAGIOS_HOSTNAME},
+		_output 	=> $ENV{NAGIOS_HOSTOUTPUT},
+		_ackauthor	=> $ENV{NAGIOS_HOSTACKAUTHOR},
+		_ackcomment	=> $ENV{NAGIOS_HOSTACKCOMMENT},
+		_url		=> "${Settings::nagios_url}?type=1&host=$ENV{NAGIOS_HOSTNAME}",
+	);
+	$method = '_notice_host_' . lc $packet{dt};
+	$data = "HOST [_state]: [_host] [_url]";
+} else {
+	die "no host/service data";
+}
+
+# PSYC socket stuff:
+my ($host,$port);
+if ($target =~ m,^psyc://([\w.-]+)(?::(\d+))?,i) {
+    $host = $1;
+    $port = $2 || 4404;
+} else {
+    die "target invalid: $target";
+}
+
+my $iaddr = inet_aton($host) || die "no host: $host";
+my $paddr = sockaddr_in($port, $iaddr);
+
+# there is no real reason why we aren't using UDP here...
+socket(S, PF_INET, SOCK_STREAM, getprotobyname('tcp')) || die "socket: $!";
+
+connect(S, $paddr) || die "connect: $!";
+select S; $|=1; select STDOUT;
+
+print S <<X;
+.
+X
+
+if (defined($_ = <S>) && !/^\./) {
+    die "rock hard error";
+}
+
+while (defined($_ = <S>) && !/^\./) {
+#	print if s/^=//;
+}
+#print "\n";
+    
+# THE MESSAGE:
+print S ":_target\t$target\n\n";
+print S ":$_\t$packet{$_}\n" for (keys %packet);
+print S <<X;
+$method
+$data
+.
+
+_request_circuit_shutdown
+.
+X
+# the _request_circuit_shutdown shouldn't be necessary for a simple
+# one-way message submission, but psyced needs to become easier about that
+
+# at this point we should wait for the other side to close the socket.. argl
+close (S) || die "close: $!";
+
+exit;
