@@ -1,21 +1,35 @@
 #!/usr/bin/perl
-# nagios2psyc
-# psyc notification script for nagios, written by Gabor Adam Toth <psyc://x-net.hu/~tg>
+#
+# nagios2psyc: psyc notification script for nagios
+# written by Gabor Adam Toth <psyc://x-net.hu/~tg>
 # based on git2psyc and rss4nagios.
 #
-# CONFIGURATION
-# - set address<x> directives in contact definitions
-# - add notify-by-psyc command and set service/host_notification_commands
-# - edit and copy psyc.cfg to /etc/nagios
-#
 # this script uses nagios environment variables,
-# enable it by setting enable_environment_macros=1 in nagios.cfg (or set manually at the command_line with NAGIOS_FOO="$FOO$")
+# enable it by setting enable_environment_macros=1 in nagios.cfg
+# (or set manually at the command_line with NAGIOS_FOO="$FOO$")
 # for some reason i had to set an additional dummy env var to enable it:
 #
 # define command {
 #	command_name    notify-by-psyc
 #	command_line    NAGIOS_ENV=1 /usr/local/bin/nagios2psyc
 # }
+#
+# CONFIGURATION
+# - set address<x> directives in contact definitions
+# - add notify-by-psyc command and set service/host_notification_commands
+# - create psyc.cfg in /etc/nagios (copy from $psyc_cfg below)
+
+$psyc_cfg = <<END_OF_PSYC_CFG if 0;
+
+# Options for nagios2psyc
+
+# use address<x> directives in contact definitions, write ADDRESS<x-1> here
+# this will use address1:
+$contact_directive = 'ADDRESS0';
+
+$nagios_url = "https://nagios.example.org/cgi-bin/extinfo.cgi";
+
+END_OF_PSYC_CFG
 
 #use warnings;
 use strict;
@@ -38,6 +52,7 @@ exit unless $target;
 my ($method,$data,$ack,%packet);
 $ack = "ACKNOWLEDGEMENT" if $ENV{NAGIOS_NOTIFICATIONTYPE} eq "ACKNOWLEDGEMENT";
 
+# variable names aren't all psyc conformant.. FIXME someday
 if ($ENV{NAGIOS_SERVICESTATE}) {
 	%packet = (
 		_state		=> $ack || $ENV{NAGIOS_SERVICESTATE},
