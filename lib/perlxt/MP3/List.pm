@@ -5,7 +5,7 @@ use MP3::Info;
 sub format {
 	# ugly as hell, how can we fix this?
 	my ($local, $full, $opt_z, $opt_x, $opt_v, $opt_h,
-	    $opt_D, $opt_p, $opt_E) = @_;
+	    $opt_D, $opt_p, $opt_E, $opt_n) = @_;
 	$full = $local unless $full;
 	my ($dev,$ino,$mode,$nlink,$uid,$gid) = lstat($_ = $local);
 	return unless -f $_;
@@ -91,7 +91,14 @@ FLAG:
 	    if ($opt_D && $flag eq 'L') {
 		$flag = unlink($_) ? '***' : '???';
 	    }
-	    $output = sprintf("%s%10d %5s %3s\t%s\r\n", $flag,
+	    $output = $opt_n?
+		sprintf("%s%s%10d %5s %3s\t%s\r\n",
+		   $nlink > 1 ? $nlink : ' ', $flag,
+		   $size,
+		   $info->{TIME},
+		   $info->{BITRATE},
+		   $full) :
+		sprintf("%s%10d %5s %3s\t%s\r\n", $flag,
 		   $size,
 		   $info->{TIME},
 		   $info->{BITRATE},

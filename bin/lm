@@ -16,9 +16,12 @@
 # 	-x(clusive) = ignore all non-mpeg files
 # 	-E(mpty) = skip empty files
 #	-q(uiet) = no progress output
+#	-n(link) = show the number of links of each file
 # 	-v(erbose)
 # 	-D(elete) = CAUTION! deletes all mp3s of 'L' low quality
 #
+# leading '--- ' in filenames can be a dealbreaker for lm. this helps:
+#	rename 's:^[ -]+::' *
 
 use MP3::List;
 my $sumTime = 0;
@@ -47,25 +50,20 @@ locate:
 		   `/usr/bin/locate \.mp3`)));
 	&find(@ARGV) if @ARGV;
 	goto summary;
-FATBOX:
-	push @ARGV, '/mnt/fatbox';
-	goto end;
-LUXBOX:
-	push @ARGV, '/mnt/luxbox';
-	goto end;
-BOX:
-	push @ARGV, '/mnt/box';
+MUSE:
+	$opt_n++;
+	push @ARGV, '/mnt/muse2';
 	goto end;
 GROTTA:
-	push @ARGV, '/F';
 	push @ARGV, '/fat/Eigene Dateien/mp3';
 	goto end;
 LEECH:
 	# it doesn't follow symlinks..
-	push @ARGV, '/fat/LOCAL', '/thin/LOCaL';
+	push @ARGV, '/fat/LoCAL', '/thin/LoCAL';
 	goto end;
+DRUMPAD:    ;
 SLIME:
-	push @ARGV, '/mnt/ntfs/LoCAL', '/thin/LoCAL', '/mnt/xfs/mp3';
+	push @ARGV, '/fat/LoCAL', '/thin/LoCAL';
 	goto end;
 KLOTZ:
 	push @ARGV, '/fat/';
@@ -101,15 +99,15 @@ sub progress {
 sub wanted {
 	# strange ntfs problems apparently.. this is needed to index slime's ntfs
 #	if ($opt_x and /\b(RECYCLER|VOLATILE|avp\.fi|fuckyuo|tetsuo)\b/i) {
-	if ($opt_x and /\b(RECYCLER|VOLATILE|Audio_Archive|grotta_\w+|leech_\w+|slime_\w+)\b/i) {
-		print STDERR "\r[pruning $name]\n";
-		return $prune = 1
-	}
+##	if ($opt_x and /\b(RECYCLER|VOLATILE|Audio_Archive|grotta_\w+|leech_\w+|slime_\w+)\b/i) {
+##		print STDERR "\r[pruning $name]\n";
+##		return $prune = 1
+##	}
 	progress($name);
 	# strange ntfs problems apparently.. this is needed to index slime's ntfs
 #	return if /^(Ober_Control_-_I_v_been_told|Austrofred|tony.telex)/;
 	my ($out, $dur) = &MP3::List::format($_, $name, $opt_z, $opt_x, $opt_v,
-					     $opt_h, $opt_D, $opt_p, $opt_E);
+				        $opt_h, $opt_D, $opt_p, $opt_E, $opt_n);
 	if ($out) {
 		$sumTime += $dur;
 		print $out;
