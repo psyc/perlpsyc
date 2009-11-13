@@ -1006,7 +1006,9 @@ sub parse_uniform {
     }
 
     # [\w-.] may be to restrictive. is it??
-    return $URLS{$arg} = 0 unless s/^([\w\-.]*)(?:\:\-?(\d*)([cd]?)|)\///; 
+    # this variant does not handle xmpp: uniforms properly, thx tg!
+    #eturn $URLS{$arg} =0 unless s/^([\w\-.]*)(?:\:\-?(\d*)([cd]?)|)\///; 
+    return $URLS{$arg} =0 unless s/^([\w\-.]*)(?:\:\-?(\d*)([cd]?)|)(?:\z|\/)//;
     ($host, $port, $transport) = ($1, $2 ? int($2) : '', $3);
 
     # is there any other protocol supporting transports?? am i wrong here?

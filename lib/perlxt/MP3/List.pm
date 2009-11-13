@@ -42,7 +42,7 @@ sub format {
 		    return sprintf("%10d\t\t%7s = %s\r\n", $size, $full,
 			&extra_part) if /\b\d+\.part$/;
 		    $output = sprintf("%10d\t\t%s\r\n", $size, $full)
-		       if !$opt_x or /\.wav\b/i && $size > 9999999;
+		       if !$opt_x or /\.(flac|wav)\b/i && $size > 6999999;
 		    return $output;
 	    }
 	    if ($opt_v) {

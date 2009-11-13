@@ -52,7 +52,7 @@ locate:
 	goto summary;
 MUSE:
 	$opt_n++;
-	push @ARGV, '/mnt/muse2';
+	push @ARGV, '/M';
 	goto end;
 GROTTA:
 	push @ARGV, '/fat/Eigene Dateien/mp3';

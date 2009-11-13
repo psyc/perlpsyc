@@ -40,6 +40,7 @@ $iaddr   = inet_aton($remote)			|| die "no host: $remote";
 $paddr   = sockaddr_in($port, $iaddr);
 socket(S, PF_INET, SOCK_STREAM, getprotobyname('tcp')) || die "socket: $!";
 
+print STDERR "Connecting $port on $remote\n" if $opt_v;
 connect(S, $paddr)				|| die "connect: $!";
 select S; $|=1; select STDOUT;
 
