@@ -15,7 +15,7 @@
 
 # place where to submit notifications to. remember to configure that
 # place to allow for external notifications from this hook's host.
-$target  = 'psyc://ve.symlynX.com/@test';
+$target  = 'psyc://psyced.org/@psyc';
 
 # if you have a tool that shows commits in form of web pages, put
 # the prefix into here. the commit hash will be appended.
@@ -39,7 +39,11 @@ $user	= $ENV{'USER'} || $name || 'GIT';
 
 # i could extract this from some other git command
 # but it's enough to use the name of the target place, usually
-$project = $1 if ($target =~ /@(.*)$/);
+$project = $1 if $target =~ /@(.*)$/;
+# or maybe it's better like this:
+use Cwd;
+my $pwd = cwd;
+$project = $1 if $pwd =~ m#/(\w+)/?\.git/#;
 
 # PSYC socket stuff:
 
