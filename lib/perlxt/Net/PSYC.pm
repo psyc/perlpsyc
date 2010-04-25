@@ -989,11 +989,11 @@ sub parse_uniform {
     local $_;
     $_ = $arg;
 
-    my ($scheme, $user, $host, $port, $transport, $object);
+    my ($scheme, $user, $host, $port, $transport, $object, $resource, $channel);
 
     return $URLS{$arg} = 0 unless s/^(\w+)\://;
     $scheme = $1;
-    
+
     if ($scheme eq 'psyc' || $scheme eq 'irc') {
 	return $URLS{$arg} = 0 unless s/^\G\/\///;
     }
@@ -1007,25 +1007,28 @@ sub parse_uniform {
 
     # [\w-.] may be to restrictive. is it??
     # this variant does not handle xmpp: uniforms properly, thx tg!
-    #eturn $URLS{$arg} =0 unless s/^([\w\-.]*)(?:\:\-?(\d*)([cd]?)|)\///; 
-    return $URLS{$arg} =0 unless s/^([\w\-.]*)(?:\:\-?(\d*)([cd]?)|)(?:\z|\/)//;
+    #eturn $URLS{$arg} = 0 unless s/^([\w\-.]*)(?:\:\-?(\d*)([cd]?)|)\///;
+    return $URLS{$arg} = 0 unless s/^([\w\-.]*)(?:\:\-?(\d*)([cd]?)|)(?:\z|\/)//;
     ($host, $port, $transport) = ($1, $2 ? int($2) : '', $3);
 
     # is there any other protocol supporting transports?? am i wrong here?
     return $URLS{$arg} = 0 if ($transport && $scheme ne 'psyc');
 
     goto EOU unless length($_);
-    
+
     if ($scheme eq 'mailto') {
 	# mailto should not have a path. what do we do then?
 	return $URLS{$arg} = 0;	
     }
 
-    return $URLS{$arg} = 0 unless ($scheme ne 'psyc' || /^[@~][\w\-]+$/);
+    my $c = '\w_=+-';
     $object = $_;
+    ($resource, $channel) = /^(~[$c]+)#([$c]+)$/ if $scheme eq 'psyc';
+
+    return $URLS{$arg} = 0 unless ($scheme ne 'psyc' || /^[~@][$c]+$/ || $resource && $channel);
 
 EOU:
-    return ($user||'', $host||'', $port, $transport||'', $object||'') 
+    return ($user||'', $host||'', $port, $transport||'', $object||'', $resource||'', $channel||'')
 	if wantarray;
     $URLS{$arg} = {
 	unl => $arg,
@@ -1033,6 +1036,8 @@ EOU:
 	port => $port,
 	transport => $transport||'',
 	object => $object||'',
+	resource => $resource||'',
+	channel => $channel||'',
 	user => $user||'',
 	scheme => $scheme||'',
     };
