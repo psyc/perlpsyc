@@ -29,6 +29,9 @@ contrib area includes a notification plugin for MovableType blogs.
 perldoc documentation inside the module.
 try `perldoc lib/perlxt/Net/PSYC.pm` from here.
 
+irssi-psyc, the psyc implementation for irssi, is not provided here.
+get it from http://about.psyc.eu/irssi
+
 http://perl.psyc.eu/ * http://about.psyc.eu/
 
 available by anonymous cvs from cvs.psyc.eu as 'perlpsyc'.

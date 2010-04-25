@@ -1,3 +1,8 @@
+# This is a very old prototype for irssi-psyc.
+# To obtain the current full fledged version,
+# please consult http://about.psyc.eu/irssi
+
+
 # should this become Net::PSYC::Irssi.pm ?
 
 use strict;
