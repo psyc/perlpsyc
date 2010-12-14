@@ -67,7 +67,7 @@ files:	(o)pen <file>			       immediately load this new song
 	(l)ist [<dir>]					     simply calls 'ls'
 	(n)ext					      next file from playlist
 	'?'			 show a list of the next 9 songs in the queue
-	(e)dit playlist
+	(w)rite or (e)dit playlist
 	e(x)it					exit without updating playlist
 
 volume:	(v)olume [0..100]			    default is maximum volume
@@ -140,7 +140,7 @@ $tmpdir='/tmp' unless -d $tmpdir and -w _;
 $tmpdir='.' unless -d $tmpdir and -w _;
 # $tmplock="$tmpdir/.psycmp3-copylock";
 $playlist="$tmpdir/playlist-$ENV{USER}.m3u";
-$hateindex="/Y/arclocator/lyndices/TRASH-$ENV{HOST}.ix";
+$hateindex="/L/arclocator/lyndices/TRASH-$ENV{HOST}.ix";
 
 	use FileHandle;
 	use Carp;
@@ -656,6 +656,7 @@ X
 
 	/^(q|quit)\b/ and &save($CS-1), &exit;
 	/^(x|exit)\b/ and &exit;
+	/^(w|write)\b/ and &save($CS-1), next;
 	# s/^o\b/open/;
 	s/^p\b/play/ and $paused = 0;
 	s/^s\b/stop/ and $paused = 1;
