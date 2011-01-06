@@ -1107,15 +1107,15 @@ See http://www.psyc.eu for protocol specs and other info on PSYC.
 Small example on how to send one single message:
 
     use Net::PSYC;
-    sendmsg('psyc://example.org/~user', '_notice_whatever', 
-	    'Whatever happened to the 80\'s...');
+    # 'd' makes it use UDP instead of TCP.. makes sense on localhost
+    sendmsg('psyc://localhost:d/~user', '_notice_whatever', 
+	    'The 80\'s are back. I didn\'t expect that...');
 
 Receiving messages:
 
-    use Net::PSYC qw(:event bind_uniform); 
+    use Net::PSYC qw(:event bind_uniform);
     register_uniform(); # get all messages
-    bind_uniform(); # start listening on :4404 tcp and udp.
-
+    bind_uniform('psyc://localhost:4404'); # start listening for TCP and UDP
     start_loop(); # start the Event loop
 
     sub msg {

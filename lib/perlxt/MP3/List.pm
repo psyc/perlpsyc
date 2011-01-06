@@ -38,11 +38,13 @@ sub format {
 #		}
 	    unless ($info) {
 		    return if $opt_h &&! /\.s?html?$/;
-		    return if /\.met$/ or $opt_L;
+		    return if /\.met$/ or $opt_b;
 		    return sprintf("%10d\t\t%7s = %s\r\n", $size, $full,
 			&extra_part) if /\b\d+\.part$/;
+		    # would be logical if uncompressed audio always
+		    # appeared when using -b ... hm!
 		    $output = sprintf("%10d\t\t%s\r\n", $size, $full)
-		       if !$opt_x or /\.(flac|wav)\b/i && $size > 6999999;
+		       if !$opt_x or /\.(flac|wav|aiff)\b/i && $size > 6999999;
 		    return $output;
 	    }
 	    if ($opt_v) {

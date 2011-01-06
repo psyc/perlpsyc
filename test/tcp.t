@@ -1,5 +1,9 @@
 # vim:syntax=perl
 #!/usr/bin/perl -w
+#
+# This may spit out an error if Event.pm appears installed but actually
+# isn't. Try "install Event" in cpan to fix this. Thx to knorr for
+# figuring this out.
 
 use strict;
 use Test::Simple tests => 7;
