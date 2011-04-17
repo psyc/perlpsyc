@@ -43,7 +43,7 @@ $project = $1 if $target =~ /@(.*)$/;
 # or maybe it's better like this:
 use Cwd;
 my $pwd = cwd;
-$project = $1 if $pwd =~ m#/(\w+)/?\.git/#;
+$project = $1 if $pwd =~ m#/(\w+)/?\.git\b#;
 
 # PSYC socket stuff:
 

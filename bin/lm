@@ -11,10 +11,10 @@
 #	-p(ath only) = only output files with path, for .m3u creation
 #
 # options:
-# 	-c(drom) = cd to /cdrom before starting
+# 	-c(hdir) <where> = chdir to <where> before starting
 # 	-h(ypertext) = produce HTML output
 # 	-x(clusive) = ignore all non-mpeg files
-# 	-E(mpty) = skip empty files
+# 	-s(ize) <value> = skip files smaller than value (default is 1234)
 #	-q(uiet) = no progress output
 #	-n(link) = show the number of links of each file
 # 	-v(erbose)
@@ -36,8 +36,8 @@ main: {
 
 	if ($#ARGV >= 0) {
                 require 'getopt.pl';
-                &Getopt('b');
-		chdir ('/cdrom') if $opt_c;
+                &Getopt('bsc');
+		chdir ($opt_c) if $opt_c;
 		goto locate if $opt_l;
 		if ($opt_i) {
 			my $label = shift || $ENV{HOST};
@@ -113,7 +113,7 @@ sub wanted {
 	# strange ntfs problems apparently.. this is needed to index slime's ntfs
 #	return if /^(Ober_Control_-_I_v_been_told|Austrofred|tony.telex)/;
 	my ($out, $dur) = &MP3::List::format($_, $name, $opt_z, $opt_x, $opt_v,
-		$opt_h, $opt_D, $opt_p, $opt_E, $opt_n, $opt_b, $opt_L);
+		$opt_h, $opt_D, $opt_p, $opt_s, $opt_n, $opt_b, $opt_L);
 	if ($out) {
 		$sumTime += $dur;
 		print $out;

@@ -591,14 +591,15 @@ X
 		next;
 	    }
 	}
-	if ( /^(J|K|R|S|X)\s*$/ ) {
+	if ( /^(J|K|R|S|E|X)\s*$/ ) {
 		my $t = $1 eq 'J' ? 'DEEJAY' :
 			$1 eq 'K' ? 'KEEP' :
+			$1 eq 'E' ? 'EDITABLE' :
 			$1 eq 'X' ? 'EXPORT' :
 			$1 eq 'S' ? 'SECONDARY' : 'REPERTOIRE';
 		my $f = $CurrentFile;
 		$f = $ENV{PWD}. '/'. $f unless $f =~ m!^/!;
-		unless ($f =~ s:\b(SHARE|COMPLETE|KEEP|SECONDARY|REPERTOIRE|NEW|SEEK|TODO)\b:$t:i)
+		unless ($f =~ s:\b(SHARE|COMPLETE|KEEP|EDITABLE|SECONDARY|REPERTOIRE|NEW|SEEK|TODO|DEEJAY)\b:$t:i)
 		{
 			print "» not applicable for $f\n";
 			next;

@@ -5,7 +5,7 @@ use MP3::Info;
 sub format {
 	# ugly as hell, how can we fix this?
 	my ($local, $full, $opt_z, $opt_x, $opt_v, $opt_h,
-	    $opt_D, $opt_p, $opt_E, $opt_n, $opt_b, $opt_L) = @_;
+	    $opt_D, $opt_p, $opt_s, $opt_n, $opt_b, $opt_L) = @_;
 	$full = $local unless $full;
 	my ($dev,$ino,$mode,$nlink,$uid,$gid) = lstat($_ = $local);
 	return unless -f $_;
@@ -20,7 +20,7 @@ sub format {
 	my $sumTime = 0;
 	my $output = '';
 	my $size = -s _;
-	return if $size < 3 && $opt_E;
+	return if $size < ($opt_s || 1234);
 
 	$full =~ s!^\./!!;
 	$full = "<a href='$full'>$full</a>" if $opt_h;
