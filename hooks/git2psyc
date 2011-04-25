@@ -35,6 +35,8 @@ chdir '.git' if -d '.git';
 my $config;
 $config = $ARGV[0] if @ARGV && -f $ARGV[0];
 $config = 'git2psyc.conf' if !$config && -f 'git2psyc.conf';
+$config = "../$config" unless $config && -f $config;
+$config = "../$config" unless $config && -f $config;
 die "Config file not found" unless $config && -f $config;
 
 our ($project, $target, $host, $port, $webview, $psycver, $debug);
