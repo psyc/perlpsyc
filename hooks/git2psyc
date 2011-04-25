@@ -132,15 +132,15 @@ for my $c (reverse @commits) {
 :_hash_commit_long\t$c->{hash}
 :_hash_commit\t$c->{abbrev_hash}
 :_page_commit\t$webview$c->{abbrev_hash}
-:_name_author\t$c->{author}
+:_name_editor\t$c->{author}
 :_name_committer\t$c->{commit}
-:_mailto_author\t$c->{author_email}
+:_mailto_editor\t$c->{author_email}
 :_mailto_committer\t$c->{commit_email}
-:_date_author\t$c->{author_date}
+:_date_editor\t$c->{author_date}
 :_date_committer\t$c->{commit_date}
-:_title\t$c->{title}
+:_comment\t$c->{title}
 $method
-[_project]: [_name_author] "[_title]" [_page_commit]
+[_project]: [_name_editor] "[_comment]" [_page_commit]
 $delim
 X
     print S $packet;
