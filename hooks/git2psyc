@@ -1,6 +1,6 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 #
-# psyc notification script for git repositories, written by the lynX
+# PSYC notification script for Git repositories, written by the lynX and improved by tg
 # based on cvs2psyc and bartman's sender-side post-commit hook.
 #
 # it simply uses git log to find out where it stands. for more elaborate
@@ -9,94 +9,151 @@
 #
 # HOW TO INSTALL:
 #
-# call this from .git/hooks/post-receive or name it so
+# put git2psyc.conf in the project.git/ directory and
+# make a link to this script in the project.git/hooks/post-receive:
+#
+# cd project.git/hooks
+# ln -s /path/to/git2psyc post-receive
+#
+# or if you want to use a different config file, call it with an argument:
+#
+# #!/bin/sh
+# git2psyc /path/to/git2psyc.conf
+#
+# HOW TO DEBUG:
+# set $debug to 1 in the config then run e.g.:
+# echo a4ddfedb23c106fe484831d0e6df6f7f273f7db9 6a9d18cfa5d3334f446ff74710ad7cde5e0026ef refs/heads/master | ./git2psyc git2psyc.conf
 
-# CONFIG ZONE:
+use strict;
+use warnings;
+use Cwd;
+use Socket;
 
-# place where to submit notifications to. remember to configure that
-# place to allow for external notifications from this hook's host.
-$target  = 'psyc://psyced.org/@psyc';
+chdir '.git' if -d '.git';
+my $config;
+$config = $ARGV[0] if @ARGV && -f $ARGV[0];
+$config = 'git2psyc.conf' if !$config && -f 'git2psyc.conf';
+die "Config file not found" unless $config && -f $config;
 
-# if you have a tool that shows commits in form of web pages, put
-# the prefix into here. the commit hash will be appended.
-#$webview = 'https://trac.symlynX.com/changeset/';
+our ($project, $target, $host, $port, $webview, $psycver, $debug);
+do $config;
 
 # GIT handling:
+my @commits;
 
-# let's extract the juice of this commit from the last log item
-my ($bighash, $hash, $name, $email, $comment) = split('§',
-		`git log -n1 --pretty=format:"%H§%h§%an§%ae§%s"`);
+# received refs with old & new hashes
+while (<STDIN>) { # <old-value> SP <new-value> SP <ref-name> LF
+    print STDERR ">> $_" if $debug;
+    next unless m,(\w+) (\w+) ([\w/]+),;
+    #next if $3 ne 'refs/heads/master'; # only process master branch
+    my ($old, $new, $ref) = ($1, $2, $3);
 
-die <<X unless $hash;
-$0 is meant to be issued from a GIT post-receive hook.
+    # find out what changed
+    $old = '' if $old =~ /^0+$/;
+    $_ = `git whatchanged --pretty=fuller $old..`;
+    print STDERR if $debug;
+
+    # extract commit hashes & msgs from git output
+    while (/commit\s+([0-9a-f]+)\n
+            Author:\s+(.*?)\ <(.*?)>\n
+            AuthorDate:\s+(.*?)\n
+            Commit:\s+(.*?)\ <(.*?)>\n
+            CommitDate:\s+(.*?)\n
+            \n
+            \s+(.*?)\n/gx) {
+        push @commits, {
+            hash => $1, abbrev_hash => substr($1, 0, 8),
+            author => $2, author_email => $3, author_date => $4,
+            commit => $5, commit_email => $6, commit_date => $7,
+            title => $8, ref => $ref,
+        };
+    }
+}
+
+if ($debug) {
+    use Data::Dumper;
+    print STDERR Dumper \@commits;
+}
+
+die <<X unless @commits;
+$0 is meant to be issued from a Git post-receive hook.
 X
 
-# in git, the person doing the commit is actually executing this code
-# if the commissioner however isn't also the author of the check-in,
-# you may want to prefer $name over $USER here:
-#$user	= $name || $ENV{'USER'} || 'GIT';
-$user	= $ENV{'USER'} || $name || 'GIT';
-
-# i could extract this from some other git command
-# but it's enough to use the name of the target place, usually
-$project = $1 if $target =~ /@(.*)$/;
-# or maybe it's better like this:
-use Cwd;
-my $pwd = cwd;
-$project = $1 if $pwd =~ m#/(\w+)/?\.git\b#;
-
 # PSYC socket stuff:
+my ($delim, $delimre);
+if ($psycver >= 1.0) {
+  $delim = '|';
+  $delimre = qr/\|/;
+} else {
+  $delim = '.';
+  $delimre = qr/\./;
+}
 
-$method  = '_notice_update_software_GIT';
-$remote = $1 if ($target =~ /^psyc:\/\/([^\/]*)/i);
-$port    = 4404;    # should be smarter than that
+my $method  = '_notice_update_software_git';
 
-use Socket;
-$iaddr   = inet_aton($remote)			|| die "no host: $remote";
-$paddr   = sockaddr_in($port, $iaddr);
+if ($target =~ m#^psyc://([\w.-]+)(?::(\d+))?#i) {
+    $host ||= $1;
+    $port ||= $2 || 4404;
+} else {
+    die "target invalid: $target";
+}
+
+my $iaddr = inet_aton($host) or die "could not resolve host: $host";
+my $paddr = sockaddr_in($port, $iaddr);
 
 # there is no real reason why we aren't using UDP here...
-socket(S, PF_INET, SOCK_STREAM, getprotobyname('tcp')) || die "socket: $!";
+socket(S, PF_INET, SOCK_STREAM, getprotobyname('tcp')) or die "socket: $!";
 
-connect(S, $paddr)				|| die "connect: $!";
+connect(S, $paddr) or die "connect: $!";
 select S; $|=1; select STDOUT;
 
 print S <<X;
-.
+$delim
 X
 
-if (defined($_ = <S>) && !/^\./) {
-    die "rock hard error";
+# wait for greeting
+if (defined($_ = <S>) && !/^$delimre/) {
+    die "Error while establishing circuit: invalid greeting";
 }
-while (defined($_ = <S>) && !/^\./) {
+# wait for first packet
+while (defined($_ = <S>) && !/^$delimre/) {
 #	print if s/^=//;
 }
 #print "\n";
 
-# THE MESSAGE:
-
-print S <<X;
+# SEND THE MESSAGES:
+# reverse them so they're in chronological order
+for my $c (reverse @commits) {
+    my $packet = <<X;
 :_target\t$target
 
-:_comment\t$comment
-:_hash_commit_long\t$bighash
-:_hash_commit\t$hash
-:_page_commit\t$webview$hash
 :_project\t$project
-:_nick_editor\t$user
-:_name_editor\t$name
-:_mailto_editor\t$email
+:_ref\t$c->{ref}
+:_hash_commit_long\t$c->{hash}
+:_hash_commit\t$c->{abbrev_hash}
+:_page_commit\t$webview$c->{abbrev_hash}
+:_name_author\t$c->{author}
+:_name_committer\t$c->{commit}
+:_mailto_author\t$c->{author_email}
+:_mailto_committer\t$c->{commit_email}
+:_date_author\t$c->{author_date}
+:_date_committer\t$c->{commit_date}
+:_title\t$c->{title}
 $method
-[_project]: [_name_editor] "[_comment]" [_page_commit]
-.
+[_project]: [_name_author] "[_title]" [_page_commit]
+$delim
+X
+    print S $packet;
+    print STDERR $packet if $debug;
+}
 
+print S <<X;
 _request_circuit_shutdown
-.
+$delim
 X
 # the _request_circuit_shutdown shouldn't be necessary for a simple
 # one-way message submission, but psyced needs to become easier about that
 
 # at this point we should wait for the other side to close the socket.. argl
-close (S)					|| die "close: $!";
+close (S)	or die "close: $!";
 exit;
-
