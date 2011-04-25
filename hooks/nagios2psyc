@@ -1,10 +1,10 @@
 #!/usr/bin/perl
 #
 # nagios2psyc: psyc notification script for nagios
-# written by Gabor Adam Toth <psyc://x-net.hu/~tg>
+# written by Gabor Adam Toth <psyc://tgbit.net/~tg>
 # based on git2psyc and rss4nagios.
 #
-# this script uses nagios environment variables,
+# This script uses nagios environment variables,
 # enable it by setting enable_environment_macros=1 in nagios.cfg
 # (or set manually at the command_line with NAGIOS_FOO="$FOO$")
 # for some reason i had to set an additional dummy env var to enable it:
@@ -17,19 +17,19 @@
 # CONFIGURATION
 # - set address<x> directives in contact definitions
 # - add notify-by-psyc command and set service/host_notification_commands
-# - create psyc.cfg in /etc/nagios (copy from $psyc_cfg below)
+# - create a psyc.cfg in /etc/nagios (copy the part between =pod & =cut below)
 
-$psyc_cfg = <<END_OF_PSYC_CFG if 0;
+=pod
 
 # Options for nagios2psyc
 
-# use address<x> directives in contact definitions, write ADDRESS<x-1> here
+# Use address<x> directives in contact definitions, write ADDRESS<x-1> here
 # this will use address1:
 $contact_directive = 'ADDRESS0';
 
 $nagios_url = "https://nagios.example.org/cgi-bin/extinfo.cgi";
 
-END_OF_PSYC_CFG
+=cut
 
 #use warnings;
 use strict;
@@ -38,7 +38,7 @@ use Socket;
 
 { package Settings; do "/etc/nagios/psyc.cfg" }
 
-my $dir = uc($Settings::contact_directive);
+my $dir = uc $Settings::contact_directive;
 my $target = $ENV{"NAGIOS_CONTACT$dir"};
 #exit if contact has no psyc address defined
 exit unless $target;
@@ -64,7 +64,7 @@ if ($ENV{NAGIOS_SERVICESTATE}) {
 		_url		=> "${Settings::nagios_url}?type=2&host=$ENV{NAGIOS_HOSTNAME}&service=".uri_escape($ENV{NAGIOS_SERVICEDESC}),
 	);
 	$method = "_notice_service_" . lc $packet{_state};
-	$data = "SERVICE [_state]: [_host] [_desc] [_url]";
+	$data = "SERVICE [_state]: [_host] [_desc] - [_output] - [_url]";
 
 } elsif ($ENV{NAGIOS_HOSTSTATE}) {
 	%packet = (
@@ -76,14 +76,23 @@ if ($ENV{NAGIOS_SERVICESTATE}) {
 		_url		=> "${Settings::nagios_url}?type=1&host=$ENV{NAGIOS_HOSTNAME}",
 	);
 	$method = '_notice_host_' . lc $packet{dt};
-	$data = "HOST [_state]: [_host] [_url]";
+	$data = "HOST [_state]: [_host] - [_output] - [_url]";
 } else {
 	die "no host/service data";
 }
 
 # PSYC socket stuff:
-my ($host,$port);
-if ($target =~ m,^psyc://([\w.-]+)(?::(\d+))?,i) {
+my ($delim, $delimre);
+if ($psycver >= 1.0) {
+  $delim = '|';
+  $delimre = qr/\|/;
+} else {
+  $delim = '.';
+  $delimre = qr/\./;
+}
+
+my ($host, $port);
+if ($target =~ m#^psyc://([\w.-]+)(?::(\d+))?#i) {
     $host = $1;
     $port = $2 || 4404;
 } else {
@@ -100,14 +109,14 @@ connect(S, $paddr) || die "connect: $!";
 select S; $|=1; select STDOUT;
 
 print S <<X;
-.
+$delim
 X
 
-if (defined($_ = <S>) && !/^\./) {
-    die "rock hard error";
+if (defined($_ = <S>) && !/^$delim/) {
+    die "Error while establishing circuit: invalid greeting";
 }
 
-while (defined($_ = <S>) && !/^\./) {
+while (defined($_ = <S>) && !/^$delim/) {
 #	print if s/^=//;
 }
 #print "\n";
@@ -118,10 +127,10 @@ print S ":$_\t$packet{$_}\n" for (keys %packet);
 print S <<X;
 $method
 $data
-.
+$delim
 
 _request_circuit_shutdown
-.
+$delim
 X
 # the _request_circuit_shutdown shouldn't be necessary for a simple
 # one-way message submission, but psyced needs to become easier about that
