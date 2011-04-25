@@ -26,7 +26,9 @@
 
 use strict;
 use warnings;
+
 use Cwd;
+use File::Basename qw/basename/;
 use Socket;
 
 chdir '.git' if -d '.git';
@@ -50,7 +52,7 @@ while (<STDIN>) { # <old-value> SP <new-value> SP <ref-name> LF
 
     # find out what changed
     $old = '' if $old =~ /^0+$/;
-    $_ = `git whatchanged --pretty=fuller $old..`;
+    $_ = `git whatchanged --pretty=fuller --shortstat $old..`;
     print STDERR if $debug;
 
     # extract commit hashes & msgs from git output
@@ -60,12 +62,16 @@ while (<STDIN>) { # <old-value> SP <new-value> SP <ref-name> LF
             Commit:\s+(.*?)\ <(.*?)>\n
             CommitDate:\s+(.*?)\n
             \n
-            \s+(.*?)\n/gx) {
+            \s+(.*?)\n
+            .*?
+            ^\ (\d+)\ files\ changed,\ (\d+)\ insertions\(\+\),\ (\d+)\ deletions\(-\)
+           /gmsx) {
         push @commits, {
-            hash => $1, abbrev_hash => substr($1, 0, 8),
+            ref => $ref, hash => $1, abbrev_hash => substr($1, 0, 8),
             author => $2, author_email => $3, author_date => $4,
             commit => $5, commit_email => $6, commit_date => $7,
-            title => $8, ref => $ref,
+            title => $8,
+            stat_files_changed => $9, stat_insertions => $10, stat_deletions => $11,
         };
     }
 }
@@ -139,8 +145,11 @@ for my $c (reverse @commits) {
 :_date_editor\t$c->{author_date}
 :_date_committer\t$c->{commit_date}
 :_comment\t$c->{title}
+:_stat_files_changed\t$c->{stat_files_changed}
+:_stat_insertions\t$c->{stat_insertions}
+:_stat_deletions\t$c->{stat_deletions}
 $method
-[_project]: [_name_editor] "[_comment]" [_page_commit]
+[_project]: [_name_editor] "[_comment]" ([_stat_files_changed] files: +[_stat_insertions] -[_stat_deletions]) [_page_commit]
 $delim
 X
     print S $packet;
