@@ -27,19 +27,21 @@
 use strict;
 use warnings;
 
-use Cwd;
+use Cwd qw/cwd realpath/;
 use File::Basename qw/basename/;
 use Socket;
 
 chdir '.git' if -d '.git';
+my $confname = 'git2psyc.conf';
 my $config;
 $config = $ARGV[0] if @ARGV && -f $ARGV[0];
-$config = 'git2psyc.conf' if !$config && -f 'git2psyc.conf';
-$config = "../git2psyc.conf" unless $config && -f $config;
-$config = "../../git2psyc.conf" unless $config && -f $config;
+$config = $confname if !$config && -f $confname;
+$config = "../$confname" unless $config && -f $config;
+$config = "../../$confname" unless $config && -f $config;
 die "Config file not found" unless $config && -f $config;
 
 our ($project, $target, $host, $port, $webview, $psycver, $debug);
+our $pwd = cwd;
 do $config;
 
 # GIT handling:
