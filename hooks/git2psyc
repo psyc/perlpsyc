@@ -54,9 +54,9 @@ while (<STDIN>) { # <old-value> SP <new-value> SP <ref-name> LF
     #next if $3 ne 'refs/heads/master'; # only process master branch
     my ($old, $new, $ref) = ($1, $2, $3);
 
-    # find out what changed
-    $old = '' if $old =~ /^0+$/;
-    $_ = `git whatchanged --pretty=fuller --shortstat $old..`;
+    next if $new =~ /^0+$/; # branch deleted, ignore
+    my $range = $old =~ /^0+$/ ? '' : "$old.."; # no range when branch added
+    $_ = `git whatchanged --pretty=fuller --shortstat $range`;
     print STDERR if $debug;
 
     # extract commit hashes & msgs from git output
