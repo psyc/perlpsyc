@@ -45,7 +45,7 @@ our $pwd = cwd;
 do $config;
 
 # GIT handling:
-my @commits;
+my (@commits, @added, @deleted);
 
 # received refs with old & new hashes
 while (<STDIN>) { # <old-value> SP <new-value> SP <ref-name> LF
@@ -54,9 +54,11 @@ while (<STDIN>) { # <old-value> SP <new-value> SP <ref-name> LF
     #next if $3 ne 'refs/heads/master'; # only process master branch
     my ($old, $new, $ref) = ($1, $2, $3);
 
-    next if $new =~ /^0+$/; # branch deleted, ignore
-    my $range = $old =~ /^0+$/ ? '' : "$old.."; # no range when branch added
-    $_ = `git whatchanged --pretty=fuller --shortstat $range`;
+    push @added, $ref if $old =~ /^0+$/;
+    push @deleted, $ref if $new =~ /^0+$/;
+    next if $old =~ /^0+$/ || $new =~ /^0+$/;
+
+    $_ = `git whatchanged --pretty=fuller --shortstat $old..`;
     print STDERR if $debug;
 
     # extract commit hashes & msgs from git output
@@ -82,10 +84,10 @@ while (<STDIN>) { # <old-value> SP <new-value> SP <ref-name> LF
 
 if ($debug) {
     use Data::Dumper;
-    print STDERR Dumper \@commits;
+    print STDERR Dumper \@commits, \@added, \@deleted;
 }
 
-die <<X unless @commits;
+die <<X unless @commits || @added || @deleted;
 $0 is meant to be issued from a Git post-receive hook.
 X
 
@@ -98,8 +100,6 @@ if ($psycver >= 1.0) {
   $delim = '.';
   $delimre = qr/\./;
 }
-
-my $method  = '_notice_update_software_git';
 
 if ($target =~ m#^psyc://([\w.-]+)(?::(\d+))?#i) {
     $host ||= $1;
@@ -152,13 +152,36 @@ for my $c (reverse @commits) {
 :_stat_files_changed\t$c->{stat_files_changed}
 :_stat_insertions\t$c->{stat_insertions}
 :_stat_deletions\t$c->{stat_deletions}
-$method
+_notice_update_software_git
 [_project]: [_name_editor] "[_comment]" ([_stat_files_changed] files: +[_stat_insertions] -[_stat_deletions]) [_page_commit]
 $delim
 X
     print S $packet;
     print STDERR $packet if $debug;
 }
+
+sub print_refs {
+    my $op = shift;
+    my $_list_refs = join '|', @_;
+    my @refs;
+    for (@_) { s,^refs/,,; push @refs, $_; }
+    my $_refs = join ', ', @refs;
+    my $packet = <<X;
+:_target\t$target
+
+:_project\t$project
+:_refs\t$_refs
+:_list_refs\t|$_list_refs
+_notice_update_software_git_refs_$op
+[_project]: $op refs: [_refs]
+$delim
+X
+    print S $packet;
+    print STDERR $packet if $debug;
+}
+
+print_refs('deleted', @deleted) if @deleted;
+print_refs('added', @added) if @added;
 
 print S <<X;
 _request_circuit_shutdown
