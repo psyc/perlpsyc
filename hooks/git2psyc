@@ -50,7 +50,7 @@ my (@commits, @added, @deleted);
 # received refs with old & new hashes
 while (<STDIN>) { # <old-value> SP <new-value> SP <ref-name> LF
     print STDERR ">> $_" if $debug;
-    next unless m,(\w+) (\w+) ([\w/]+),;
+    next unless m,([0-9a-f]+) ([0-9a-f]+) (\S+),;
     #next if $3 ne 'refs/heads/master'; # only process master branch
     my ($old, $new, $ref) = ($1, $2, $3);
 
