@@ -44,7 +44,7 @@ sub format {
 		    # would be logical if uncompressed audio always
 		    # appeared when using -b ... hm!
 		    $output = sprintf("%10d\t\t%s\r\n", $size, $full)
-		       if !$opt_x or /\.(flac|wav|aiff)\b/i && $size > 6999999;
+		       if !$opt_x or /\.(flac|wav|aif|aiff|ogg|m4a|aac)\b/i && $size > 6999999;
 		    return $output;
 	    }
 	    if ($opt_v) {

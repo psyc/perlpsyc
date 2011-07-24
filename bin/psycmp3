@@ -96,7 +96,7 @@ $UNI = 'psyc://127.0.0.1:1144d/';
 # for now psycmp3 can only handle .mp? and .sdj
 #   "temp" are the temporary mp3 filenames of audiogalaxy
 #   "dl" are from some gnutella
-$FILETYPES = "(mp\\d|sdj|temp|dl)";
+$FILETYPES = "(mp3|mp4|sdj|temp|dl)";
 # "(wav|au|mp\\d|sea|mod|gz|lha|Z|lzh|zip|s3m)";
 # |med|mmd0)";
 # should also be able to handle .pls

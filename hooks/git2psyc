@@ -91,14 +91,18 @@ die <<X unless @commits || @added || @deleted;
 $0 is meant to be issued from a Git post-receive hook.
 X
 
+print <<X;
+Delivering notice to $target.
+X
+
 # PSYC socket stuff:
 my ($delim, $delimre);
 if ($psycver >= 1.0) {
-  $delim = '|';
-  $delimre = qr/\|/;
+    $delim = '|';
+    $delimre = qr/\|/;
 } else {
-  $delim = '.';
-  $delimre = qr/\./;
+    $delim = '.';
+    $delimre = qr/\./;
 }
 
 if ($target =~ m#^psyc://([\w.-]+)(?::(\d+))?#i) {
@@ -158,6 +162,7 @@ $delim
 X
     print S $packet;
     print STDERR $packet if $debug;
+    print "$c->{title}\n" if $c->{title};
 }
 
 sub print_refs {
