@@ -162,7 +162,7 @@ $delim
 X
     print S $packet;
     print STDERR $packet if $debug;
-    print "$c->{title}\n" if $c->{title};
+    print "  \"$c->{title}\"\n" if $c->{title};
 }
 
 sub print_refs {
