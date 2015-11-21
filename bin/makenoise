@@ -322,7 +322,8 @@ if ($opt_x or not fork) {
 		# exec "xaudio -input=m3u $tmplist" if $opt_x;
 #		exec "xaudio `cat $tmplist`" if $opt_x;
 		# exec "freeamp `cat $tmplist`" if $opt_x;
-		exec "mpg123 --remain --aggressive -@ $tmplist" if $opt_x;
+		#exec "mpg123 --remain --aggressive -@ $tmplist" if $opt_x;
+		exec "/usr/bin/see $tmplist" if $opt_x;
 		exit;
 	}
 }

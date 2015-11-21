@@ -53,6 +53,11 @@ X
 
 # things still in "makenoise":	cdrom-file-caching, des-decoding,
 #				marks, volumes, support for non-mp3s.
+#
+# HINTS & HACKS:
+# in order to play only high quality files from a folder, you can use
+# "lm -Lb 193 >/tmp/playlist-$USER.m3u; psycmp3"
+#
 sub help { print &head, <<X; }
 
 basics:	(q)uit (h)elp
@@ -93,10 +98,9 @@ $UNI = 'psyc://127.0.0.1:1144d/';
 #
 @VV = ( 0,2,5,8,11,14,17,20,24,28,33,38,43,49,56,64,72,81,90,100 );
 
-# for now psycmp3 can only handle .mp? and .sdj
-#   "temp" are the temporary mp3 filenames of audiogalaxy
-#   "dl" are from some gnutella
-$FILETYPES = "(mp3|mp4|sdj|temp|dl)";
+# for now psycmp3 can only handle .mp3 and .sdj
+#   "part" and "dl" are the temporary filenames of some download tools
+$FILETYPES = "(mp3|sdj|part|dl)";
 # "(wav|au|mp\\d|sea|mod|gz|lha|Z|lzh|zip|s3m)";
 # |med|mmd0)";
 # should also be able to handle .pls
@@ -166,6 +170,7 @@ MAIN: {
 	     || $ENV{'HOST'}
 	     || 'unixer';
 
+	print "Using playlist: $playlist\n" if $opt_v;
 	if ($opt_h) {
 		print &head, <<X, &sorthelp;
 
@@ -215,8 +220,10 @@ or, just for friends, from http://mp3.pages.de/files/	(old linux binary)
 of course you are welcome to update psycmp3 to work with xmms or mplayer or..
 
 X
-	# aoss: Wrapper script to facilitate use of the ALSA OSS compatibility library.
-	$has_aoss = &which('aoss') or "";
+	# aoss: Wrapper to facilitate use of the ALSA OSS compatibility library.
+	# padsp: Wrapper to do the same with pulseaudio.
+	$wrapper = &which('aoss') || &which('padsp') || "";
+	print "Using wrapper: $wrapper\n" if $opt_v;
 	if ($opt_H || !$has_rxaudio) {
 		print &head, <<X;
 
@@ -265,9 +272,8 @@ X
 	    &load unless $opt_x;
 	    system "$ENV{EDITOR} $playlist;clear" if $opt_e;
 	}
-
 	#exec "xaudio `cat $playlist`" if $opt_x;
-	exec 'xaudio "`cat $playlist`"' if $opt_x;
+	exec 'mplayer "`cat $playlist`"' if $opt_x;
 	#exec "mpg123 --remain --aggressive -@ $playlist" if $opt_x;
 
 	print STDERR "binding to $opt_b ...\n" if DEBUG & 16 && $opt_b;
@@ -591,15 +597,16 @@ X
 		next;
 	    }
 	}
-	if ( /^(J|K|R|S|E|X)\s*$/ ) {
+	if ( /^(J|K|R|S|E|X|M)\s*$/ ) {
 		my $t = $1 eq 'J' ? 'DEEJAY' :
 			$1 eq 'K' ? 'KEEP' :
 			$1 eq 'E' ? 'EDITABLE' :
+			$1 eq 'M' ? 'REMASTER' :
 			$1 eq 'X' ? 'EXPORT' :
 			$1 eq 'S' ? 'SECONDARY' : 'REPERTOIRE';
 		my $f = $CurrentFile;
 		$f = $ENV{PWD}. '/'. $f unless $f =~ m!^/!;
-		unless ($f =~ s:\b(SHARE|T|COMPLETE|KEEP|EDITABLE|SECONDARY|REPERTOIRE|NEW|SEEK|TODO|DEEJAY)\b:$t:i)
+		unless ($f =~ s:\b(SHARE|T|COMPLETE|KEEP|EDITABLE|SECONDARY|REPERTOIRE|NEW|SEEK|TODO|DEEJAY|REMASTER|INCOMING)\b:$t:i)
 		{
 			print "» not applicable for $f\n";
 			next;
@@ -808,9 +815,11 @@ X
 	# r(andom)	# bad randomizer algorithm (use -r instead)
 sub by_n { $file[$a] cmp $file[$b]; }
 sub by_N { reverse($file[$a]) cmp reverse($file[$b]); }
+# this actually produces VERY pseudo random results, says randal
+# see http://www.perlmonks.org/?node_id=199901
 sub by_r { rand(10) < 5; }
-sub by_nr { rand(9) > 3 ? &by_name : &by_rand; }
-sub by_cr { rand(9) > 3 ? $a <=> $b : &by_rand; }
+sub by_nr { rand(9) > 3 ? &by_n : &by_r; }
+sub by_cr { rand(9) > 3 ? $a <=> $b : &by_r; }
 sub by_m { $date[$a] <=> $date[$b]; }
 sub by_M { $date[$b] <=> $date[$a]; }
 sub by_a { $adate[$a] <=> $adate[$b]; }
@@ -844,6 +853,8 @@ X
 	}
 }
 
+# FIXME: maybe update to use List::Util 'shuffle';
+# or maybe this is fine because it does NOT use sort+rand
 sub randomize {
 	my @tmp = 1 .. $NS;
 	my @order = ();
@@ -1018,8 +1029,8 @@ sub rxstart {
 	}
 	$R = new FileHandle; $R->autoflush;
 	$W = new FileHandle; $W->autoflush;
-	$pid = open2( \*R, \*W, "$has_aoss $has_rxaudio");
-	$pid || die "$has_aoss $has_rxaudio: $!";
+	$pid = open2( \*R, \*W, "$wrapper $has_rxaudio");
+	$pid || die "$wrapper $has_rxaudio: $!";
 	print STDERR <<X if DEBUG & 64;
 rxaudio server running as $pid
 X
