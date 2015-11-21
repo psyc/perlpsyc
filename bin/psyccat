@@ -1,4 +1,4 @@
-#!/usr/bin/perl -I/ve/perlpsyc/lib/perl5
+#!/usr/bin/perl -I/usr/depot/lib/perlxt
 #
 # usage: $0 [-t <uniform>] [-b <uniform>] [-m <method>] [<files>]
 #
@@ -9,8 +9,8 @@
 require 5.000;
 use Net::PSYC;
 
-require 'getopt.pl';
-&Getopt('tbm');
+use Getopt::Std;
+getopt('tbm');
 
 $binder = $opt_b || 'psyc://127.0.0.1:0d/';	# get yourself any udp port
 $target = $opt_t || 'psyc://127.0.0.1:2244/';	# talk to local "listen" script

@@ -1,42 +1,41 @@
-#!/usr/bin/perl
-    eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
-	if $running_under_some_shell;
+#!/usr/bin/perl -I/usr/depot/lib/perlxt
 
 # a cool way to list mpeg files, especially for grepping.	-lynx
-#
-# commands:
-# 	-l(ocate) = use locate to find all mp3s on this computer
-# 	-i(ndex) = use hostname-based presets
-#	-z for optimized indexing of non-mpeg files
-#	-p(ath only) = only output files with path, for .m3u creation
-#
-# options:
-# 	-c(hdir) <where> = chdir to <where> before starting
-# 	-h(ypertext) = produce HTML output
-# 	-x(clusive) = ignore all non-mpeg files
-# 	-s(ize) <value> = skip files smaller than value (default is 1234)
-#	-q(uiet) = no progress output
-#	-n(link) = show the number of links of each file
-# 	-v(erbose)
-# 	-D(elete) = CAUTION! deletes all mp3s of 'L' low quality
-#	-b(itrate) <minimum> = output only things of minimum bitrate
-#	-L(ist) = output just a simple list of filenames (use with -b)
 #
 # leading '--- ' in filenames can be a dealbreaker for lm. this helps:
 #	rename 's:^[ -]+::' *
 
 use MP3::List;
+use Getopt::Std;
+use File::Find ();
+
 my $sumTime = 0;
 
 main: {
-	require 'find.pl';
-
-	# most unices do it wrong, apparently
-	$File::Find::dont_use_nlink = 'DONT!';
-
 	if ($#ARGV >= 0) {
-                require 'getopt.pl';
-                &Getopt('bsc');
+                getopt('bsc');
+		if ($opt_h) { print <<X; exit; }
+Usage: $0 <commands> <options> <arguments>
+
+Commands:
+    -l(ocate) = use locate to find all mp3s on this computer
+    -i(ndex) = use hostname-based presets
+    -z for optimized indexing of non-mpeg files
+    -p(ath only) = only output files with path, for .m3u creation
+
+Options:
+    -c(hdir) <where> = chdir to <where> before starting
+    -H(ypertext) = produce HTML output
+    -x(clusive) = ignore all non-mpeg files
+    -s(ize) <value> = skip files smaller than value (default is 1234)
+    -q(uiet) = no progress output
+    -n(link) = show the number of links of each file
+    -v(erbose)
+    -V(erbose) = show file scan progress on STDERR
+    -D(elete) = CAUTION! deletes all mp3s of 'L' low quality
+    -b(itrate) <minimum> = output only things of minimum bitrate
+    -L(ist) = output just a simple list of filenames (use with -b)
+X
 		chdir ($opt_c) if $opt_c;
 		goto locate if $opt_l;
 		if ($opt_i) {
@@ -48,9 +47,9 @@ main: {
 FLY:	;
 	; # fall thru
 locate:
-	&find(grep(/\.mp3$/, split(/\n/,
+	&File::Find::find(\&wanted, grep(/\.mp3$/, split(/\n/,
 		   `/usr/bin/locate \.mp3`)));
-	&find(@ARGV) if @ARGV;
+	&File::Find::find(\&wanted, @ARGV) if @ARGV;
 	goto summary;
 MUZE:
 	$opt_n++;
@@ -72,7 +71,7 @@ KLOTZ:
 	push @ARGV, '/fat/';
 	# fall thru
 end:
-	&find(@ARGV ? @ARGV : '.');
+	&File::Find::find(\&wanted, @ARGV ? @ARGV : '.');
 	# fall thru
 summary:
 	print STDERR "\n" unless $opt_q;
@@ -93,13 +92,14 @@ sub progress {
 	my $tx = join('', @_);
 	my $len = length $tx;
 	$tx = "...". substr($tx, length($tx)-73) if $len > 75;
-	unless ($opt_q) {
+	if ($opt_V) {
 		print STDERR "\r", $tx, ' ', '_' x (75-$len), ' ' if $len < 75;
 #		print "\n" if DEBUG & 1;
 	}
 }
 
 sub wanted {
+	my $name = $File::Find::name;
 	# strange ntfs problems apparently.. this is needed to index slime's ntfs
 #	if ($opt_x and /\b(RECYCLER|VOLATILE|avp\.fi|fuckyuo|tetsuo)\b/i) {
 ##	if ($opt_x and /\b(RECYCLER|VOLATILE|Audio_Archive|grotta_\w+|leech_\w+|slime_\w+)\b/i) {
@@ -110,7 +110,7 @@ sub wanted {
 	# strange ntfs problems apparently.. this is needed to index slime's ntfs
 #	return if /^(Ober_Control_-_I_v_been_told|Austrofred|tony.telex)/;
 	my ($out, $dur) = &MP3::List::format($_, $name, $opt_z, $opt_x, $opt_v,
-		$opt_h, $opt_D, $opt_p, $opt_s, $opt_n, $opt_b, $opt_L);
+		$opt_H, $opt_D, $opt_p, $opt_s, $opt_n, $opt_b, $opt_L);
 	if ($out) {
 		$sumTime += $dur;
 		print $out;
