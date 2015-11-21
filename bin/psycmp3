@@ -120,7 +120,8 @@ $KEEP = 'LOCAL';
 #	256: show all rxaudio output
 #	512: watch only rxparse
 #	1024: watch timer events (timeout simulation)
-sub DEBUG () { 1 + 32 + 128 }
+#	2048: show rxaudio debug messages
+sub DEBUG () { 32 + 128 }
 
 # also activate PSYC debugging
 #Net::PSYC::setDEBUG(3);
@@ -495,7 +496,7 @@ sub next {
 	my $a = shift;
 	&fade(43, $a) if $a and $VOL > 50;
 	my $n = $file[$order[++$CS]]; # || $file[$CS];
-	&exit if !$n or ($n eq '') or !$NS or $CS >= $NS;
+	&exit(0) if !$n or ($n eq '') or !$NS or $CS >= $NS;
 	return &next(0) if $opt_S and $n =~ /\b$KEEP\b/oi;
 	&open( $n );
  #	if (!$a or $opt_I) {
@@ -652,8 +653,8 @@ X
 #		&p("seek $1 $2");
 #	}
 
-	/^(q|quit)\b/ and &save($CS-1), &exit;
-	/^(x|exit)\b/ and &exit;
+	/^(q|quit)\b/ and &save($CS-1), &exit(0);
+	/^(x|exit)\b/ and &exit(0);
 	/^(w|write)\b/ and &save($CS-1), next;
 	# s/^o\b/open/;
 	s/^p\b/play/ and $paused = 0;
@@ -1008,7 +1009,13 @@ sub rxparse {
 	#return 0 if /^(play|close|open|volume)/;
 	return 0 if /^(play|volume|get_player_mode)/;
 	return $_ if $opt_q or / notify (position|ack|play|state|can seek)/;
-	if (DEBUG & 32 and /^MSG notify debug \[.* message=\"(.+)\"\]/) {
+	if ( /^MSG notify debug \[.* message=\"no audio device found\"\]/ ) {
+		print "\n\r", <<X;
+*** No audio device accessible. Try modprobe snd-pcm-oss!
+X
+		&exit(-1);
+	}
+	if (DEBUG & 2048 and /^MSG notify debug \[.* message=\"(.+)\"\]/) {
 		print "\r*** ", $1, "\n";
 		return 0;
 	}
@@ -1062,7 +1069,7 @@ sub rxopen {
 	$output_open = 1;
 }
 
-sub exit { &rxstop, exit; }
+sub exit { &rxstop, exit(@_); }
 
 sub load {
 	my $songs = $opt_L? 'songs': 'entries';

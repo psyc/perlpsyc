@@ -1,4 +1,4 @@
-#!/usr/bin/perl -I/ve/perlpsyc/lib/perl5
+#!/usr/bin/perl -I/usr/depot/lib/perlxt
 #
 # so the time is right for a first version of the 'tell' command
 # which now uses PSYC, not BITnet MSG nor MSEND..
@@ -12,8 +12,8 @@ use Net::PSYC;
 
 $DEFSERVER = 'localhost';
 
-require 'getopt.pl';
-&Getopt('dbmn');
+use Getopt::Std;
+getopt('dbmn');
 
 $binder = $opt_b || 'psyc://:0d/';      # get yourself any udp port
 

@@ -1,12 +1,12 @@
-#!/usr/bin/perl -I/ve/perlpsyc/lib/perl5
+#!/usr/bin/perl -I/usr/depot/lib/perlxt
 #
 # ask a locally running psyced how many users are currently online
 
 require 5.000;
 use Net::PSYC qw( :event :base );
 
-require 'getopt.pl';
-&Getopt('tbmd');
+use Getopt::Std;
+getopt('tbmd');
 
 $DEBUG = $opt_d;
 Net::PSYC::setDEBUG($DEBUG) if $DEBUG;
