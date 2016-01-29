@@ -56,10 +56,6 @@ MUZE:
 	$opt_n++;
 	push @ARGV, '/i/muze';
 	goto end;
-ARTY:
-	$opt_n++;
-	push @ARGV, '/i/arty';
-	goto end;
 GROTTA:
 	push @ARGV, '/fat/Eigene Dateien/mp3';
 	goto end;
@@ -67,9 +63,10 @@ LEECH:
 	# it doesn't follow symlinks..
 	push @ARGV, '/fat/LoCAL', '/thin/LoCAL';
 	goto end;
+ACCROCCO:    ;
 DRUMPAD:    ;
 SLIME:
-	push @ARGV, '/fat/LoCAL', '/thin/LoCAL';
+	push @ARGV, '/fat/LoCAL', '/thin/LoCAL', '/C';
 	goto end;
 KLOTZ:
 	push @ARGV, '/fat/';
