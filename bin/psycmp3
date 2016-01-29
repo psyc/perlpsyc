@@ -1,38 +1,32 @@
 #!/usr/bin/perl -I/usr/local/lib/perlxt -I/usr/depot/lib/perlxt
-# -w
 #
 sub head { return <<X; }
 =============================================================================
-PSYC mp3 console 3.0			by the symbolic lynx\@psycmp3.pages.de
+PSYC mp3 console 3.1			by the symbolic lynx\@psycmp3.pages.de
 -----------------------------------------------------------------------------
 X
 # command line front-end to rxaudio with PSYC remote control support
 #
-# this mp3 is over a decade old, but it still is my mp3 player of choice
+# this mp3 player is over a decade old, but it still is my tool of choice
 # i gave it functions i wouldn't have in any other.. hmmm
 #
 # requires the 'rxaudio' server engine from http://www.mpeg.org/xaudio/
 # actually.. it doesn't exist anymore. there are some binaries around.
+# the copy that I have been using since 1997 or so has a sha256sum of
+# ddb096ad42d9b6b543db8a3a6d9b4a9d52943e75e96697dbbadbc779140c498e.
+# although the general public never saw any source codes to it, it is
+# viable to assume that it didn't ship any backdoors.
 #
-# and furthermore it requires the Net/PSYC.pm
-# module since it uses its event multiplexing
-# abilities not just to receive PSYC messages,
-# but also to handle stdin and rxaudio input in parallel.
+# furthermore psycmp3 requires the Net/PSYC.pm module since it uses its 
+# event multiplexing abilities not just to receive PSYC messages, but
+# also to handle stdin and rxaudio input in parallel.
 #
 # i'd like to upgrade this to something that can handle ALSA or even JACK,
 # and knows how to play any of ogg, mp2, mp3, au, aiff, wav. Not talking
-# of .mid and tracker formats. some links:
-#	http://search.cpan.org/~tsch/GStreamer-0.09/GStreamer.pm
-#	http://search.cpan.org/~gbrown/Gtk2-Ex-MPlayerEmbed-0.02/lib/Gtk2/Ex/MPlayerEmbed.pm
-#	http://search.cpan.org/~stephen/Video-Xine-0.02/lib/Video/Xine.pm
-#	http://search.cpan.org/~mischke/POE-Wheel-Audio-Mad-0.3/Mad.pm
-#	http://search.cpan.org/~allenday/FFmpeg-6036/FFmpeg/Stream/Audio.pm
-#	http://search.cpan.org/~tels/Audio-Audiere-0.05/lib/Audio/Audiere/Stream.pm
-# btw, how does one link to the *current* version of a cpan thing?
+# of .mid and tracker formats. then again, this works.
 #
-# you can use the 'psyccmd' script to remote control
-# this script, which therefore can act as a music
-# jukebox.
+# you can use the 'psyccmd' script to remote control this script, which 
+# therefore can act as a music jukebox.
 
 # since perl has no native preprocessor, this code is
 # managed by the 'jaggler' preprocessor.
@@ -130,6 +124,7 @@ $KEEP = 'LOCAL';
 #	256: show all rxaudio output
 #	512: watch only rxparse
 #	1024: watch timer events (timeout simulation)
+#	2048: show rxaudio debug messages
 sub DEBUG () { 32 + 128 }
 
 # also activate PSYC debugging
@@ -146,6 +141,8 @@ $tmpdir='.' unless -d $tmpdir and -w _;
 $playlist="$tmpdir/playlist-$ENV{USER}.m3u";
 $hateindex="/L/arclocator/lyndices/TRASH-$ENV{HOST}.ix";
 
+	use Getopt::Std;
+	use File::Find ();
 	use FileHandle;
 	use Carp;
 	use IPC::Open2;
@@ -159,8 +156,7 @@ $scan = 0;
 
 MAIN: {
 	if ($#ARGV >= 0) {
-		require 'getopt.pl';
-		&Getopt('bMns');
+		getopt('bMns');
 	}
 	$nick = $opt_n
 	     || $ENV{'PSYCNICK'}
@@ -221,6 +217,7 @@ of course you are welcome to update psycmp3 to work with xmms or mplayer or..
 
 X
 	# aoss: Wrapper to facilitate use of the ALSA OSS compatibility library.
+	# in case you do not have it in form of kernel modules (snd-pcm-oss etc)
 	# padsp: Wrapper to do the same with pulseaudio.
 	$wrapper = &which('aoss') || &which('padsp') || "";
 	print "Using wrapper: $wrapper\n" if $opt_v;
@@ -288,8 +285,9 @@ X
 #§	dirty_add( \*STDIN );				#? !E
 	&rxstart;
 
-	require 'pwd.pl'; # also used by &save()
-	&initpwd;
+	# use Cwd; # also used by &save()
+	use Cwd qw(chdir);  # maintains PWD in ENV
+	print STDERR $ENV{PWD} . " = PWD\n" if DEBUG & 1;
 	if ($opt_d) {
 		print STDERR ($Volatile = $ENV{PWD} =~ /\b$VOLATILE\b/oi) ?<<X:<<Y;
 Warning: ALL files will be deleted after consumption.
@@ -504,7 +502,7 @@ sub next {
 	my $a = shift;
 	&fade(43, $a) if $a and $VOL > 50;
 	my $n = $file[$order[++$CS]]; # || $file[$CS];
-	&exit if !$n or ($n eq '') or !$NS or $CS >= $NS;
+	&exit(0) if !$n or ($n eq '') or !$NS or $CS >= $NS;
 	return &next(0) if $opt_S and $n =~ /\b$KEEP\b/oi;
 	&open( $n );
  #	if (!$a or $opt_I) {
@@ -662,8 +660,8 @@ X
 #		&p("seek $1 $2");
 #	}
 
-	/^(q|quit)\b/ and &save($CS-1), &exit;
-	/^(x|exit)\b/ and &exit;
+	/^(q|quit)\b/ and &save($CS-1), &exit(0);
+	/^(x|exit)\b/ and &exit(0);
 	/^(w|write)\b/ and &save($CS-1), next;
 	# s/^o\b/open/;
 	s/^p\b/play/ and $paused = 0;
@@ -782,7 +780,8 @@ sub jump {
 # if your system doesn't have "which" we're in trouble
 sub which {
 	my $cmd = shift;
-	$_ = `which $cmd`;
+	$_ = `which $cmd 2>&1`;
+	print STDERR "which $cmd: $_" if DEBUG & 1;
 	/^(\S+)\s*$/;
 	return $1;
 }
@@ -828,11 +827,19 @@ sub by_s {
 	# one side of this if/else clause gets optimized away at compilation
 	if (DEBUG & 128) {
 		my $B = $size[$b]; my $A = $size[$a];
-		print <<X if $A == $B;
+		if ($A == $B) {
+			my ($ad, $ai) = stat $a;
+			my ($bd, $bi) = stat $b;
+			# inform of duplicate files in file system
+			# unless they are hard- or softlinked
+			print <<X unless $ai == $bi and $ad == $bd;
 Same file size $B:
 	$file[$a] and
 	$file[$b]
 X
+			# we could also be calling cmp, but then we
+			# are doing a different job than playing music
+		}
 		return $A <=> $B;
 	} else {
 		return $size[$a] <=> $size[$b];
@@ -900,9 +907,8 @@ sub enqueue {
 	my $saveNS = $NS;
 	for $_ (@_) {
 		if (-d $_ && -x _ && -r _) {
-			require 'finddepth.pl';
 			print STDERR "\n[finddepth: $_]\n" if DEBUG & 2;
-			&finddepth($_);
+			&File::Find::finddepth(\&wanted, $_);
 			next;   # $_ is corrupted after finddepth
 		}
 		$name = $_;
@@ -915,6 +921,7 @@ sub enqueue {
 	}
 }
 sub wanted {
+	my $name = $File::Find::name;
 	($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
 	   $atime,$mtime,$ctime,$blksize,$blocks) = lstat($_);
 	my $neat = length($name)>70 ? "...".substr($name,-67) : $name
@@ -1013,6 +1020,16 @@ sub rxparse {
 	#return 0 if /^(play|close|open|volume)/;
 	return 0 if /^(play|volume|get_player_mode)/;
 	return $_ if $opt_q or / notify (position|ack|play|state|can seek)/;
+	if ( /^MSG notify debug \[.* message=\"no audio device found\"\]/ ) {
+		print "\n\r", <<X;
+*** No audio device accessible. Try modprobe snd-pcm-oss!
+X
+		&exit(-1);
+	}
+	if (DEBUG & 2048 and /^MSG notify debug \[.* message=\"(.+)\"\]/) {
+		print "\r*** ", $1, "\n";
+		return 0;
+	}
 	return $_ if !$opt_v && /notify (debug|output|input|nack)/;
 	# my $o = $_;
 	s/^MSG notify //i;
@@ -1063,7 +1080,7 @@ sub rxopen {
 	$output_open = 1;
 }
 
-sub exit { &rxstop, exit; }
+sub exit { &rxstop, exit(@_); }
 
 sub load {
 	my $songs = $opt_L? 'songs': 'entries';

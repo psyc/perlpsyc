@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -I/usr/depot/lib/perlxt
 #
 # _request_link is the message that connects a
 # UNL to a UNI - in simple words - that connects
@@ -11,8 +11,8 @@ use strict 'refs';
 use Net::PSYC qw( Event=IO::Select );
 # use Net::PSYC::Storage;
 
-require 'getopt.pl';
-&Getopt('tbmcndswhpF');
+use Getopt::Std;
+getopt('tbmcndswhpF');
 # bind_uniform( $opt_b );
 
 $host = $opt_h || 'localhost';

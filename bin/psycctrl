@@ -1,4 +1,4 @@
-#!/usr/bin/perl -I/ve/perlpsyc/lib/perl5
+#!/usr/bin/perl -I/usr/depot/lib/perlxt
 #
 # usage: psycctrl [<flags>] <setting> <value>
 #
@@ -26,8 +26,8 @@ require 5.000;
 use IO::Socket;
 use Digest::MD5 qw(md5_hex);
 
-require 'getopt.pl';
-&Getopt('tbmshp');
+use Getopt::Std;
+getopt('tbmshp');
 
 $binder = $opt_b || 'psyc://:0d/';	# get yourself any udp port on local ip
 					# talk to local psyced (default)

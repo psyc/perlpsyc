@@ -1,5 +1,4 @@
-#!/usr/bin/perl
-# -I/ve/perlpsyc/lib/perl5
+#!/usr/bin/perl -I/usr/depot/lib/perlxt
 #
 # requires a psyc server to do anything useful -
 # will tell a UNI on that server that this unix
@@ -15,8 +14,8 @@
 #use Net::PSYC qw( Event=IO::Select ); # no eventing!?
 use Net::PSYC;
 
-require 'getopt.pl';
-&Getopt('tbimnd');
+use Getopt::Std;
+getopt('tbimnd');
 
 $binder = $opt_b || 'psyc://:0d/';      # get yourself any udp port
 
