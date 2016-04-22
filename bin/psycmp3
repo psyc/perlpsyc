@@ -1080,7 +1080,7 @@ sub rxopen {
 	$output_open = 1;
 }
 
-sub exit { &rxstop, exit(@_); }
+sub exit { &rxstop, exit(shift); }
 
 sub load {
 	my $songs = $opt_L? 'songs': 'entries';
