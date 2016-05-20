@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -I/usr/depot/lib/perlxt
 #
 # forwards syslog events to a PSYC target.	-lynX 2006
 #

@@ -1,9 +1,9 @@
-#!/usr/bin/perl -I/ve/perlpsyc/lib/perl5
+#!/usr/bin/perl -I/usr/depot/lib/perlxt
 #
 # listen for PSYC packets and dump them
 
-require 'getopt.pl';
-&Getopt('b');
+use Getopt::Std;
+getopt('b');
 				# make the library sweat a little
 my $uni = $opt_b || "psyc://$ENV{USER}\@127.0.0.1:2244c/\$$0";
 

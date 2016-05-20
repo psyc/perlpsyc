@@ -1,9 +1,9 @@
-#!/usr/bin/perl -I/ve/perlpsyc/lib/perl5
+#!/usr/bin/perl -I/usr/depot/lib/perlxt
 #
 # listen for PSYC packets and dump them
 
-require 'getopt.pl';
-&Getopt('bt');
+use Getopt::Std;
+getopt('bt');
 
 use Net::PSYC qw( :event );
 

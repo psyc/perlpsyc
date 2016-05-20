@@ -1,4 +1,4 @@
-#!/usr/bin/perl -I ../lib/perlxt
+#!/usr/bin/perl -I/usr/depot/lib/perlxt
 
 use strict;
 
