@@ -1,0 +1,86 @@
+#!/usr/bin/perl -I/usr/depot/lib/perlxt
+#
+# connect to a Tor ControlPort, receive events and generate PSYC messages
+# CAUTION: WORK IN PROGRESS
+
+my $host = '127.0.0.1';
+my $port = 9051;
+
+my $socket = undef;
+
+
+## SANDWICHES ##
+
+sub torin {
+	$_ = <$socket>;
+	print "> $_";
+}
+
+sub type {
+	$_ = <STDIN>;
+	exit if /^\s*q\s*$/i;
+	s/^\s*n\s*$/SIGNAL NEWNYM\n/i;
+	s/^\s*c\s*$/GETINFO circuit-status\n/i;
+	s/^\s*s\s*$/GETINFO stream-status\n/i;
+	if ( /^\s*(h|help|\?)\s*$/i ) {
+		print <<X;
+	*** Available shortcuts:
+		'q' to quit
+		'n' for new identity
+		'c' for circuit-status
+		's' for stream-status
+X
+		return;
+}
+	print $socket $_;
+}
+
+sub msg {
+	print "Received a PSYC packet. FIXME.\n";
+}
+
+## MAIN ###
+
+	use IO::Socket::INET;
+	use Net::PSYC qw( :event );
+	use Getopt::Std;
+	getopt('bpHP');
+	$|=1;
+
+	$host = $1 if $ENV{http_proxy} =~ m!^http://(\S+):\d+$!;
+	$host = $1 if $ENV{HTTP_PROXY} =~ m!^http://(\S+):\d+$!;
+	$host = $1 if $ENV{SOCKS_PROXY} =~ m!^socks://(\S+):\d+$!;
+	$host = $opt_H if $opt_H;
+	$port = $opt_P if $opt_P;
+
+	die <<X unless $opt_p;
+Your Tor router answers at $host:$port?
+
+Usage: $0 -p <password> [<options>]
+
+Options:
+	-H <host>	Tor router host
+	-P <port>	Tor router control port
+	-b <uniform>	PSYC address to bind to
+X
+	$socket = IO::Socket::INET->new( Proto => 'tcp',
+				PeerAddr => $host, PeerPort => $port);
+	die "Could not connect to $host:$port: $!" unless $socket;
+	print "Connected to Tor router ControlPort at $host:$port\n";
+
+				# make the library sweat a little
+	my $uni = $opt_b || "psyc://$ENV{USER}\@127.0.0.1:4051/\$remotor";
+	bind_uniform( $uni );
+	register_uniform();
+	print "Listening for PSYC controls on $uni\n";
+	print "Taking Tor commands from STDIN. Type '?' for a list of shortcuts.\n";
+
+	print $socket <<X;
+AUTHENTICATE "$opt_p"
+SETEVENTS CIRC STATUS_CLIENT STATUS_GENERAL STATUS_SERVER
+X
+	add($socket, 'r', \&torin);
+	add(\*STDIN, 'r', \&type);
+	start_loop();
+	exit;
+
