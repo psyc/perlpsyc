@@ -599,7 +599,7 @@ X
 			$1 eq 'S' ? 'SECONDARY' : 'REPERTOIRE';
 		my $f = $CurrentFile;
 		$f = $ENV{PWD}. '/'. $f unless $f =~ m!^/!;
-		unless ($f =~ s:\b(SHARE|T|COMPLETE|KEEP|EDITABLE|SECONDARY|REPERTOIRE|NEW|SEEK|TODO|DEEJAY)\b:$t:i)
+		unless ($f =~ s:\b(SHARE|T|COMPLETE|INCOMING|KEEP|EDITABLE|SECONDARY|REPERTOIRE|NEW|SEEK|TODO|DEEJAY)\b:$t:i)
 		{
 			print "» not applicable for $f\n";
 			next;
@@ -819,11 +819,19 @@ sub by_s {
 	# one side of this if/else clause gets optimized away at compilation
 	if (DEBUG & 128) {
 		my $B = $size[$b]; my $A = $size[$a];
-		print <<X if $A == $B;
+		if ($A == $B) {
+			my ($ad, $ai) = stat $a;
+			my ($bd, $bi) = stat $b;
+			# inform of duplicate files in file system
+			# unless they are hard- or softlinked
+			print <<X unless $ai == $bi and $ad == $bd;
 Same file size $B:
 	$file[$a] and
 	$file[$b]
 X
+			# we could also be calling cmp, but then we
+			# are doing a different job than playing music
+		}
 		return $A <=> $B;
 	} else {
 		return $size[$a] <=> $size[$b];
