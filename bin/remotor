@@ -1,0 +1,110 @@
+#!/usr/bin/perl -I/usr/depot/lib/perlxt
+#
+# remote control for Tor: the remoTor!
+#
+# + produce and receive Tor events over the ControlPort
+# + exchange messages over PSYC (not yet)
+
+my $host = '127.0.0.1';	    # defaults to try
+my $port = 9051;
+
+my $socket = undef;
+my $circ = undef;
+my $log = undef;
+
+
+## SANDWICHES ##
+
+sub torin {
+	$_ = <$socket>;
+	chop; chop;
+	$_ = "> $_\n";
+	print;
+	print $log $_;
+}
+
+sub type {
+	$_ = <STDIN>;
+	exit if /^\s*q\s*$/i;
+	return &circtoggle if /^\s*t\s*$/i;
+	s/^\s*n\s*$/SIGNAL NEWNYM\n/i;
+	s/^\s*c\s*$/GETINFO circuit-status\n/i;
+	s/^\s*s\s*$/GETINFO stream-status\n/i;
+	if ( /^\s*(\S|help)\s*$/i ) {
+		print <<X;
+	*** Available shortcuts:
+		'q' to quit
+		'n' for new identity
+		'c' for circuit-status
+		's' for stream-status
+		't' to toggle circuit events
+X
+		return;
+	}
+	print $socket $_;
+	print $log "<<< $_";
+}
+
+sub circtoggle {
+	my $c = "SETEVENTS STATUS_CLIENT STATUS_GENERAL STATUS_SERVER";
+	$c .= " CIRC" if $circ;
+	print $socket $c, "\n";
+	$circ = 1 - $circ;
+}
+
+sub msg {
+	print "Received a PSYC packet. FIXME.\n";
+}
+
+## MAIN ###
+
+	use IO::Socket::INET;
+	use Net::PSYC qw( :event );
+	use Getopt::Std;
+	getopt('blpHP');
+	$|=1;
+
+	$host = $1 if $ENV{http_proxy} =~ m!^http://(\S+):\d+$!;
+	$host = $1 if $ENV{HTTP_PROXY} =~ m!^http://(\S+):\d+$!;
+	$host = $1 if $ENV{SOCKS_PROXY} =~ m!^socks://(\S+):\d+$!;
+	$host = $opt_H if $opt_H;
+	$port = $opt_P if $opt_P;
+
+	die <<X unless $opt_p;
+Your Tor router answers at $host:$port?
+
+Usage: $0 -p <password> [<options>]
+
+Options:
+	-H <host>	Tor router host
+	-P <port>	Tor router control port
+	-b <uniform>	PSYC address to bind to
+	-l <logfile>	Keep a transaction log
+X
+	print "Trying to connect Tor router at $host:$port\n";
+	$socket = IO::Socket::INET->new( Proto => 'tcp',
+				PeerAddr => $host, PeerPort => $port);
+	die "Could not connect to $host:$port: $!" unless $socket;
+	print "Connected to ControlPort at $host:$port\n";
+
+	my $uni = $opt_b || "psyc://$ENV{USER}\@127.0.0.1:4051/\$remotor";
+	bind_uniform( $uni );
+	register_uniform();
+	print "Listening for PSYC controls on $uni\n";
+	print "Taking Tor commands from STDIN. Type '?' for a list of shortcuts.\n";
+	print "See also https://gitweb.torproject.org/torspec.git/plain/control-spec.txt\n";
+
+	print $socket <<X;		    # CIRC is pretty verbose
+AUTHENTICATE "$opt_p"
+USEFEATURE EXTENDED_EVENTS VERBOSE_NAMES
+X
+	&circtoggle;
+	die "Cannot write to $opt_l: $!"
+	    if $opt_l and not open($log, '>>', $opt_l);
+	print $log "\n\n\n\n\n*** New session ***\n\n";
+
+	add($socket, 'r', \&torin);
+	add(\*STDIN, 'r', \&type);
+	start_loop();
+	exit;
+
