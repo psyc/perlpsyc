@@ -103,9 +103,10 @@ sub wanted {
 	# strange ntfs problems apparently.. this is needed to index slime's ntfs
 #	if ($opt_x and /\b(RECYCLER|VOLATILE|avp\.fi|fuckyuo|tetsuo)\b/i) {
 ##	if ($opt_x and /\b(RECYCLER|VOLATILE|Audio_Archive|grotta_\w+|leech_\w+|slime_\w+)\b/i) {
-##		print STDERR "\r[pruning $name]\n";
-##		return $prune = 1
-##	}
+	if (/^\.git$/) {
+		print STDERR "\r[pruning $name]\n";
+		return $prune = 1
+	}
 	progress($name);
 	# strange ntfs problems apparently.. this is needed to index slime's ntfs
 #	return if /^(Ober_Control_-_I_v_been_told|Austrofred|tony.telex)/;
