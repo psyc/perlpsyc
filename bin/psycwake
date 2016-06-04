@@ -1,10 +1,10 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -I/usr/depot/lib/perlxt
 #
 # usage:
 #	 echo "psycwake <uni>" | at <time>
 
-require 'getopt.pl';
-&Getopt('tbmpn');
+use Getopt::Std;
+getopt('tbmpn');
 
 $target  = $opt_t || '127.1';
 $method  = $opt_m || '_notice_wake';
