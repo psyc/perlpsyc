@@ -1,4 +1,6 @@
-#!/usr/bin/perl -I../lib/perlxt/ -I/usr/depot/lib/perlxt
+#!/usr/bin/perl -I/usr/local/lib/perl5 -I/usr/depot/lib/perl5
+#
+# psycion - a curses-based native PSYC communications client
 
 use strict;
 # use Getopt::Long

@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -I/usr/local/lib/perl5 -I/usr/depot/lib/perl5
 #
 # makenoise is the predecessor of psycmp3 for scripting the
 # operation of playing music files. in other words, yet another 

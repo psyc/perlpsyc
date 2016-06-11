@@ -1,4 +1,4 @@
-#!/usr/bin/perl -I/usr/local/lib/perlxt -I/usr/depot/lib/perlxt
+#!/usr/bin/perl -I/usr/local/lib/perl5 -I/usr/depot/lib/perl5
 #
 sub head { return <<X; }
 =============================================================================
@@ -51,6 +51,7 @@ X
 # HINTS & HACKS:
 # in order to play only high quality files from a folder, you can use
 # "lm -Lb 193 >/tmp/playlist-$USER.m3u; psycmp3"
+# lm is available from http://perl.pages.de or older versions of perlpsyc.
 #
 sub help { print &head, <<X; }
 

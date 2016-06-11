@@ -27,7 +27,7 @@ tell		- send a message to a PSYC recipient
 contrib area includes a notification plugin for MovableType blogs.
 
 perldoc documentation inside the module.
-try `perldoc lib/perlxt/Net/PSYC.pm` from here.
+try `perldoc lib/perl5/Net/PSYC.pm` from here.
 
 irssi-psyc, the psyc implementation for irssi, is not provided here.
 get it from http://about.psyc.eu/irssi

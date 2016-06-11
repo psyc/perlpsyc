@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl -I/usr/local/lib/perl5 -I/usr/depot/lib/perl5 -w
 #
 
 use vars qw($plugin $T $query);

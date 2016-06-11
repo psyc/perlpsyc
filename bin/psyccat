@@ -1,4 +1,4 @@
-#!/usr/bin/perl -I/usr/depot/lib/perlxt
+#!/usr/bin/perl -I/usr/local/lib/perl5 -I/usr/depot/lib/perl5
 #
 # usage: $0 [-t <uniform>] [-b <uniform>] [-m <method>] [<files>]
 #

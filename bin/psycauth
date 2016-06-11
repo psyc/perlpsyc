@@ -1,6 +1,6 @@
-#!/usr/bin/perl -I/usr/depot/lib/perlxt
+#!/usr/bin/perl -I/usr/local/lib/perl5 -I/usr/depot/lib/perl5
 #
-# listen for PSYC packets and dump them
+# authenticate via PSYC, then listen for packets and dump them
 
 use Getopt::Std;
 getopt('bt');

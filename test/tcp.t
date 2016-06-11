@@ -1,5 +1,4 @@
-# vim:syntax=perl
-#!/usr/bin/perl -w
+#!/usr/bin/perl -I/usr/local/lib/perl5 -I/usr/depot/lib/perl5
 #
 # This may spit out an error if Event.pm appears installed but actually
 # isn't. Try "install Event" in cpan to fix this. Thx to knorr for

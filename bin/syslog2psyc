@@ -1,41 +1,39 @@
-#!/usr/bin/perl -I/usr/depot/lib/perlxt
+#!/usr/bin/perl -I/usr/local/lib/perl5 -I/usr/depot/lib/perl5
 #
 # forwards syslog events to a PSYC target.	-lynX 2006
 #
 # had i known how easy it is, i would have done this 1997
 #
 # first set up a pipe where we can get syslog events from:
-#	mkfifo /dev/psyc
-#	chown <user> /dev/psyc
+#	mkfifo /dev/syslog2psyc
+#	chown <user> /dev/syslog2psyc
 #
-# then configure /dev/psyc as destination for syslog messages
-#
-# in syslog-ng.conf it may look like this:
-#	destination psyc { pipe("/dev/psyc"); };
+# then configure /dev/syslog2psyc as the destination for 
+# syslog messages. in syslog-ng.conf it may look like this:
+#	destination psyc { pipe("/dev/syslog2psyc"); };
 #	log { source(src); destination(psyc); };
 #
 # in syslog.conf it may look like this:
-#	*.warn;*.err			|/dev/psyc
+#	*.warn;*.err			|/dev/syslog2psyc
 #
 # finally run this script as <user>
 # you may later want to refine the type of messages that are
 # forwarded to you.
 #
-# If you don't own an always running PSYC server yet, visit 
-# www.psyc.eu and consider using the PSYCdevs' brain community.
-# Or get your very own psyced from http://www.psyced.org
-# It has a syslog.c ready to use in the place/ folder.
+# If you don't own an always running PSYC server yet,
+# visit http://www.psyced.org. The psyced LPC sandbox
+# runtime has a syslog.c ready to use in the place/ folder.
 
 $target  = shift;
 $pipe  = shift;
-$pipe = '/dev/psyc' unless -r $pipe;
+$pipe = '/dev/syslog2psyc' unless -r $pipe;
 $pipe = '/dev/console' unless -r $pipe;
 $pipe = '/dev/xconsole' unless -r $pipe;
 $pipe = 0 unless -r $pipe;
 
 die <<X unless $target and $pipe;
 please provide target and pipe as parameters, as in
-    $0 psyc://localhost/\@syslog /dev/psyc
+    $0 psyc://localhost/\@syslog /dev/syslog2psyc
 X
 
 $mc = '_notice_system_event';

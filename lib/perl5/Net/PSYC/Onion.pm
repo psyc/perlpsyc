@@ -1,4 +1,9 @@
 package Net::PSYC::Onion;
+#
+# WARNING:
+# This experiment in onion-like packet routing is not related to Tor.
+# It actually tries to implement anonymized P2P file sharing.
+# See also http://about.psyc.eu/Onion
 
 # Gedanken:
 #

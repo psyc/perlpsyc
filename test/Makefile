@@ -1,4 +1,4 @@
-DINGS=perl -I../lib/perlxt -Wall
+DINGS=perl -I../lib/perl5 -Wall
 all: parse tcp udp compress timer event 
 parse:
 	${DINGS} psyc_parse.t

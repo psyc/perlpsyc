@@ -1,4 +1,4 @@
-#!/usr/bin/perl -I/usr/depot/lib/perlxt
+#!/usr/bin/perl -I/usr/local/lib/perl5 -I/usr/depot/lib/perl5
 #
 # so the time is right for a first version of the 'tell' command
 # which now uses PSYC, not BITnet MSG nor MSEND..
