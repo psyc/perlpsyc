@@ -7,13 +7,25 @@
 
 my $host = '127.0.0.1';	    # defaults to try
 my $port = 9051;
+my $ini = "$ENV{HOME}/.tor/remotor.ini";
 
 my $socket = undef;
 my $circ = undef;
 my $log = undef;
+my %config;
 
+use IO::Socket::INET;
+use Net::PSYC qw( :event );
+use Term::ANSIColor qw(:constants);
+use Getopt::Std;
 
 ## SANDWICHES ##
+
+sub debug() { 0 }
+
+sub say {
+	print BOLD, "\t=== ", MAGENTA, @_, RESET, "\n";
+}
 
 sub torin {
 	$_ = <$socket>;
@@ -53,46 +65,80 @@ sub circtoggle {
 }
 
 sub msg {
-	print "Received a PSYC packet. FIXME.\n";
+	say "Received a PSYC packet. FIXME.";
+}
+
+# simple .ini file format parser taken from psyconf
+sub iniparser {
+	my $cf = shift;
+	my $f = "default";
+	open C, $cf;
+	while(<C>) {
+		next if /^;/;
+		next if /^\s*$/;
+		$f = $1, next if /^\[(\w+)\]\s*$/;
+		$config{"$f:$1"} = $2, next
+		    if /^(\w+)\s*=\s*(.+?)\s*$/;
+		die "cannot parse line $. in $cf\n\t$_\n";
+	}
+	close C;
+	say join ' ', keys %config if debug;
 }
 
 ## MAIN ###
 
-	use IO::Socket::INET;
-	use Net::PSYC qw( :event );
-	use Getopt::Std;
 	getopt('blpHP');
 	$|=1;
 
+	&iniparser($ini);
+	my $nick = shift || 'default';
 	$host = $1 if $ENV{http_proxy} =~ m!^http://(\S+):\d+$!;
 	$host = $1 if $ENV{HTTP_PROXY} =~ m!^http://(\S+):\d+$!;
 	$host = $1 if $ENV{SOCKS_PROXY} =~ m!^socks://(\S+):\d+$!;
+	$host = $config{"$nick:host"} if $config{"$nick:host"};
+	$port = $config{"$nick:port"} if $config{"$nick:port"};
+	my $auth = $config{"$nick:auth"};
+	$auth = $opt_p if $opt_p;
 	$host = $opt_H if $opt_H;
 	$port = $opt_P if $opt_P;
 
-	die <<X unless $opt_p;
-Your Tor router answers at $host:$port?
+	die <<X unless $auth;
+Is $host:$port the host and port your Tor router answers on?
 
-Usage: $0 -p <password> [<options>]
+Usage: $0 [<options>] [<nickname>]
 
 Options:
+	-p <password>	Authentication string needed to take control
 	-H <host>	Tor router host
 	-P <port>	Tor router control port
 	-b <uniform>	PSYC address to bind to
 	-l <logfile>	Keep a transaction log
+
+<nickname> matches an entry from the $ini file.
+Here's an example for the ini syntax in use:
+
+[default]
+host=192.168.0.1
+port=9051
+auth=somesecretrandomstring
+
+The configuration file is a safer place to store authentication
+strings than the command line which can be read by other users
+of this computing device (in case you have any). The default
+entry will be used unless you specify a nickname.
 X
-	print "Trying to connect Tor router at $host:$port\n";
+	say "Trying to connect Tor router at $host:$port";
 	$socket = IO::Socket::INET->new( Proto => 'tcp',
 				PeerAddr => $host, PeerPort => $port);
 	die "Could not connect to $host:$port: $!" unless $socket;
-	print "Connected to ControlPort at $host:$port\n";
+	say "Connected to ControlPort at $host:$port";
 
 	my $uni = $opt_b || "psyc://$ENV{USER}\@127.0.0.1:4051/\$remotor";
 	bind_uniform( $uni );
 	register_uniform();
-	print "Listening for PSYC controls on $uni\n";
-	print "Taking Tor commands from STDIN. Type '?' for a list of shortcuts.\n";
-	print "See also https://gitweb.torproject.org/torspec.git/plain/control-spec.txt\n";
+	say "Listening for PSYC controls on $uni";
+	print GREEN, "Taking Tor commands from STDIN. Type '?' for a list of shortcuts.\n", RESET;
+	print GREEN, "See also https://gitweb.torproject.org/torspec.git/plain/control-spec.txt\n", RESET;
 
 	print $socket <<X;		    # CIRC is pretty verbose
 AUTHENTICATE "$opt_p"
