@@ -32,7 +32,7 @@ sub torin {
 	chop; chop;
 	$_ = "> $_\n";
 	print;
-	print $log $_;
+	print $log $_ if $log;
 }
 
 sub type {
@@ -54,7 +54,7 @@ X
 		return;
 	}
 	print $socket $_;
-	print $log "<<< $_";
+	print $log "<<< $_" if $log;
 }
 
 sub circtoggle {
@@ -147,7 +147,7 @@ X
 	&circtoggle;
 	die "Cannot write to $opt_l: $!"
 	    if $opt_l and not open($log, '>>', $opt_l);
-	print $log "\n\n\n\n\n*** New session ***\n\n";
+	print $log "\n\n\n\n\n*** New session ***\n\n" if $log;
 
 	add($socket, 'r', \&torin);
 	add(\*STDIN, 'r', \&type);
