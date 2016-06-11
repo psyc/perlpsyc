@@ -30,9 +30,23 @@ sub say {
 sub torin {
 	$_ = <$socket>;
 	chop; chop;
-	$_ = "> $_\n";
-	print;
-	print $log $_ if $log;
+	return unless $_;
+	return if $_ eq '510 Unrecognized command ""';
+	s/ PURPOSE=GENERAL\b//;	    # only show ungeneral purposes
+	s/\bPURPOSE=(\S+)\b/ GREEN. $1 .RESET /e;
+	s/\bBUILD_FLAGS=(\S+)\b/ BLUE. $1 .RESET /e;
+	s/\bREND_QUERY=(\S+)\b/ CYAN. $1 .RESET /e;
+	s/ TIME_CREATED=\S+\b//;    # too much information
+	s/\bHS_STATE=\b//;
+	# let it be human readable
+	s/IS_INTERNAL\b/i/;
+	s/ONEHOP_TUNNEL\b/o/;
+	s/NEED_CAPACITY\b/c/;
+	s/NEED_UPTIME\b/u/;
+	s/\$\w+~(\w+)\b/ RED. $1 .RESET /ge;
+	print YELLOW, $_, RESET, "\n";
+	print $log "> $_\n" if $log;
+	print $socket "\n";
 }
 
 sub type {
@@ -141,7 +155,7 @@ X
 	print GREEN, "See also https://gitweb.torproject.org/torspec.git/plain/control-spec.txt\n", RESET;
 
 	print $socket <<X;		    # CIRC is pretty verbose
-AUTHENTICATE "$opt_p"
+AUTHENTICATE "$auth"
 USEFEATURE EXTENDED_EVENTS VERBOSE_NAMES
 X
 	&circtoggle;
