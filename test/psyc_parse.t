@@ -1,4 +1,4 @@
-#!/usr/bin/perl -I/usr/local/lib/perl5 -I/usr/depot/lib/perl5
+#!/usr/bin/perl
 
 use strict;
 

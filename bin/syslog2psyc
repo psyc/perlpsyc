@@ -1,4 +1,4 @@
-#!/usr/bin/perl -I/usr/local/lib/perl5 -I/usr/depot/lib/perl5
+#!/usr/bin/perl -I/usr/depot/lib/perl5 -w
 #
 # forwards syslog events to a PSYC target.	-lynX 2006
 #

@@ -1,0 +1,7 @@
+#!/usr/bin/perl -I/usr/depot/lib/perl5 -w
+
+use Net::PSYC;
+# 'd' makes it use UDP instead of TCP.. makes sense on localhost
+sendmsg('psyc://localhost:d/~user', '_notice_whatever', 
+	'The 80\'s are back. I didn\'t expect that...');
+

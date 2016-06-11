@@ -11,18 +11,19 @@
 <pre>
 Net::PSYC with support for TCP, UDP, Event.pm, IO::Select and Gtk2 event loops.
 
-cvs2psyc	- report changes to a CVS tree into a developer chatroom
 dpa2psyc	- gateway a newsfeed into a PSYC subscription room
-notify		- send presence notification from the command line
+git2psyc	- report changes to a git repository into a developer chatroom
 psycauth	- authenticate something with your PSYC identity
 psyccmd		- remote control psycmp3 and whatever wants to be controlled
 psycfilemonitor	- notify changes to the file system in realtime
 psycion		- amazing console psyc client!
 psycmail	- report incoming emails to the recipient
 psycmp3		- console mp3 player with PSYC notification and remote control
+psycmsg		- send a message to a PSYC recipient
+psycnotify	- send presence notification from the command line
 psycsyncd	- interfaces PSYC SYNC protocol to DBI (SQL databases etc)
 syslog2psyc	- daemon that receives events from syslog and forwards to psyc
-tell		- send a message to a PSYC recipient
+remotor		- remote control for Tor routers with PSYC integration
 
 contrib area includes a notification plugin for MovableType blogs.
 
@@ -34,7 +35,6 @@ get it from http://about.psyc.eu/irssi
 
 http://perl.psyc.eu/ * http://about.psyc.eu/
 
-available by anonymous cvs from cvs.psyc.eu as 'perlpsyc'.
-questions? tell psyc://psyced.org/~lynX or psyc://psyced.org/~el
+questions? ask psyc://psyced.org/~lynX or psyc://psyced.org/~el
 
 </pre></td></tr></table>

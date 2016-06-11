@@ -1,4 +1,4 @@
-#!/usr/bin/perl -I/usr/local/lib/perl5 -I/usr/depot/lib/perl5
+#!/usr/bin/perl -I/usr/depot/lib/perl5
 # remove -w when productive, insert -w when debugging
 
 # MAIL FILTER FOR DELIVERY OF DPA NEWS HEADLINES VIA PSYC

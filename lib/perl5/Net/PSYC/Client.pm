@@ -484,7 +484,7 @@ Every message that's worth printing is delivered to the msg() method. You could 
  
     sub msg {
 	my ($source, $mc, $data, $vars) = @_;
-	print Net::PSYC::psyctext($data, $vars);
+	print "*** ", Net::PSYC::psyctext($data, $vars), "\n";
 	return 1;
     }
 

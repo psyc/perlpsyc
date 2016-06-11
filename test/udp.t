@@ -1,4 +1,4 @@
-#!/usr/bin/perl -I/usr/local/lib/perl5 -I/usr/depot/lib/perl5 -w
+#!/usr/bin/perl
 
 use strict;
 use Test::Simple tests => 7;

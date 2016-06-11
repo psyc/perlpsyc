@@ -133,7 +133,7 @@ _reply_file
 },
 '_reply_search' => sub {
 	my ($source, $mc, $data, $vars) = @_;
-	print Net::PSYC::psyctext($data, $vars)."\n";
+	print Net::PSYC::psyctext($data, $vars), "\n";
         my $i = 0;
 	foreach (@{( ref $vars->{'_files'}) ? $vars->{'_files'} : [ $vars->{'_files'} ]}) {
             $search_results{${$vars->{'_files_checksum'}}[$i]} = [

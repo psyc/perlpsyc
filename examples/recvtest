@@ -1,0 +1,12 @@
+#!/usr/bin/perl -I/usr/depot/lib/perl5 -w
+
+use Net::PSYC qw(:event bind_uniform);
+register_uniform(); # get all messages
+bind_uniform('psyc://localhost:4404'); # start listening for TCP and UDP
+start_loop(); # start the Event loop
+
+sub msg {
+    my ($source, $mc, $data, $vars) = @_;
+    print "A message ($mc) from $source reads: '$data'\n";
+}    
+

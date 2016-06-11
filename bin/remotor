@@ -1,14 +1,13 @@
-#!/usr/bin/perl -I/usr/local/lib/perl5 -I/usr/depot/lib/perl
+#!/usr/bin/perl -I/usr/depot/lib/perl5
 #
 # remote control for Tor: the remoTor!
 #	--symlynX 2016
 #
 # + produce and receive Tor events over the ControlPort
-# + exchange messages over PSYC (not yet)
+# + forward important messages into a chatroom via PSYC
 
 my $host = '127.0.0.1';	    # defaults to try
 my $port = 9051;
-my $ini = "$ENV{HOME}/.tor/remotor.ini";
 my $circ = 1;		    # request real-time circuit activity by default?
 
 sub debug() { 0 }
@@ -17,15 +16,21 @@ use IO::Socket::INET;
 use Net::PSYC qw( :event );
 use Term::ANSIColor qw(:constants);
 use Getopt::Std;
+getopt('bclpmtHP');
+
+my $bind = $opt_b || "psyc://$ENV{USER}\@127.0.0.1:4051/\$remotor";
+my $method = $opt_m || '_notice_tor';
+my $ini = $opt_c || "$ENV{HOME}/.tor/remotor.ini";
 
 my $socket = undef;
+my $target;
 my $log = undef;
 my %config;
 
 ## SANDWICHES ##
 
 sub say {
-	print BOLD, "\t=== ", MAGENTA, @_, RESET, "\n";
+	print BOLD, MAGENTA, @_, RESET, "\n";
 }
 
 sub torparse {
@@ -49,6 +54,8 @@ sub torparse {
 	s/NEED_UPTIME\b/u/;
 	s/\$\w+~(\w+)\b/ RED. $1 .RESET /ge;
 	print YELLOW, $_, RESET, "\n";
+	sendmsg($target, $method, $_) if $target and
+	    /(FAIL|ERROR|DESTROY|SIGNAL|DANGER|LIVENESS|HIBERNATION|TRANSPORT|GUARD|BAD|HIJACKED|USELESS|UNREACHABLE|CLOCK|BUG|TOO_MANY)\b/;
 	print $log "> $_\n" if $log;
 	print $socket "\n";
 }
@@ -83,7 +90,8 @@ sub circtoggle {
 }
 
 sub msg {
-	say "Received a PSYC packet. FIXME.";
+	my ($source, $mc, $data, $vars) = @_;
+	print MAGENTA, psyctext($data, $vars), RESET, "\n";
 }
 
 # simple .ini file format parser taken from psyconf
@@ -105,9 +113,7 @@ sub iniparse {
 
 ## MAIN ###
 
-	getopt('blpHP');
 	$|=1;
-
 	&iniparse($ini);
 	my $nick = shift || 'default';
 	$host = $1 if $ENV{http_proxy} =~ m!^http://(\S+):\d+$!;
@@ -119,6 +125,8 @@ sub iniparse {
 	$auth = $opt_p if $opt_p;
 	$host = $opt_H if $opt_H;
 	$port = $opt_P if $opt_P;
+	$target = $opt_t || $config{"$nick:notify"}
+			 || $config{"default:notify"};
 
 	die <<X unless $auth;
 Is $host:$port the host and port your Tor router answers on?
@@ -129,8 +137,11 @@ Options:
 	-p <password>	Authentication string needed to take control
 	-H <host>	Tor router host
 	-P <port>	Tor router control port
-	-b <uniform>	PSYC address to bind to
 	-l <logfile>	Keep a transaction log
+	-c <config>	Alternate configuration file to use
+	-t <uniform>	PSYC address to send notifications to
+	-b <uniform>	PSYC address to bind to
+	-m <method>	PSYC method to use
 
 <nickname> matches an entry from the $ini file.
 Here's an example for the ini syntax in use:
@@ -139,6 +150,7 @@ Here's an example for the ini syntax in use:
 host=192.168.0.1
 port=9051
 auth=somesecretrandomstring
+notify=psyc://127.0.0.1/\@remotor
 
 The configuration file is a safer place to store authentication
 strings than the command line which can be read by other users
@@ -151,10 +163,9 @@ X
 	die "Could not connect to $host:$port: $!" unless $socket;
 	say "Connected to ControlPort at $host:$port";
 
-	my $uni = $opt_b || "psyc://$ENV{USER}\@127.0.0.1:4051/\$remotor";
-	bind_uniform( $uni );
+	bind_uniform( $bind );
 	register_uniform();
-	say "Listening for PSYC controls on $uni";
+	say "Listening for PSYC controls on $bind";
 	print GREEN, "Taking Tor commands from STDIN. Type '?' for a list of shortcuts.\n", RESET;
 	print GREEN, "See also https://gitweb.torproject.org/torspec.git/plain/control-spec.txt\n", RESET;
 
@@ -169,6 +180,8 @@ X
 
 	add($socket, 'r', \&torparse);
 	add(\*STDIN, 'r', \&keyparse);
+	sendmsg($target, $method."_start", "$0 started") if $target;
 	start_loop();
+	sendmsg($target, $method."_stop", "$0 stopped") if $target;
 	exit;
 
