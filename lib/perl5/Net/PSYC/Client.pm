@@ -2,7 +2,7 @@ package Net::PSYC::Client;
 
 use strict;
 
-our $VERSION = '0.4';
+our $VERSION = '1.0';
 #
 # implements some basic client functionality...
 # 

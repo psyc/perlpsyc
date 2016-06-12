@@ -1,6 +1,6 @@
 package Net::PSYC::Event::Event;
 
-our $VERSION = '0.1';
+our $VERSION = '1.0';
 
 use strict;
 use Event qw(loop unloop);

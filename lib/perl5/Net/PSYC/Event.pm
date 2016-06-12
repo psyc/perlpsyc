@@ -20,7 +20,7 @@ my (%unl2obj, %obj2unl, %unl2wrapper, %context2obj);
 # context2obj is an approach to be able to route context. Clients use this too.
 my (%PSYC_SOCKETS);
 
-our $VERSION = '0.4';
+our $VERSION = '1.0';
 
 our @EXPORT = qw();
 our @EXPORT_OK = qw(register_uniform unregister_uniform watch forget init start_loop stop_loop add remove revoke);

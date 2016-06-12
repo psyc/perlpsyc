@@ -26,8 +26,9 @@ package Net::PSYC;
 # developer's point of view this library is quite close to a 1.0 release.
 # After six years of development and usage that's presumably appropriate, too.
 
-# last snapshot made when i changed this into 0.26  -lynX
-our $VERSION = '0.26';
+# this library has been stable for years, and the 2016 development of remotor
+# showed that it works just fine. so let's bump it to a 1.0 release.	--lynX
+our $VERSION = '1.0';
 
 use strict;
 

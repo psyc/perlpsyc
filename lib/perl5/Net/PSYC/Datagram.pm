@@ -1,6 +1,6 @@
 package Net::PSYC::Datagram;
 
-our $VERSION = '0.5';
+our $VERSION = '1.0';
 
 use strict;
 use IO::Socket::INET;

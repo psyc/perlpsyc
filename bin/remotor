@@ -5,11 +5,13 @@
 #
 # + produce and receive Tor events over the ControlPort
 # + forward important messages into a chatroom via PSYC
+# + interact with the user over the terminal console
 
 my $host = '127.0.0.1';	    # defaults to try
 my $port = 9051;
 my $circ = 1;		    # request real-time circuit activity by default?
 
+sub version() { "1.0" }
 sub debug() { 0 }
 
 use IO::Socket::INET;
@@ -113,6 +115,7 @@ sub iniparse {
 
 ## MAIN ###
 
+	say "remoTor ", version, " - a control console for Tor routers with PSYC notification";
 	$|=1;
 	&iniparse($ini);
 	my $nick = shift || 'default';

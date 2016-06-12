@@ -6,7 +6,7 @@ package Net::PSYC::Storage;
 # ... and maybe one day implements also _request_retrieve and _request_store
 # but then i'd have to do the linking as well.. and that doesn't belong here
 #
-our $VERSION = '0.1';
+our $VERSION = '1.0';
 
 use strict;
 use Carp;

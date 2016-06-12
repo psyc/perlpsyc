@@ -1,6 +1,6 @@
 package Net::PSYC::Circuit;
 
-our $VERSION = '0.4';
+our $VERSION = '1.0';
 
 use strict;
 use Carp;
