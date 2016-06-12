@@ -1,12 +1,4 @@
-<title>top</title><body bgcolor="#ffcc99" text="#333333"
- style="font-family: tahoma,helvetica,sans-serif">
-<blockquote>
-<blockquote>
-<blockquote>
-<blockquote>
-<table><tr><td>
-<font size=7 style="font-size: 500%">perlpsyc ...</font><br/>
-<pre><font size=2><a href="http://about.psyc.eu/">PSYC</a> IMPLEMENTATION IN <a href="http://perl.pages.de">PERL</a></font><br/>
+<a href="http://about.psyc.eu/">PSYC</a> IMPLEMENTATION IN <a href="http://perl.pages.de">PERL</a>
 
 
 Net::PSYC with support for TCP, UDP, Event.pm, IO::Select and Gtk2 event loops.
@@ -22,7 +14,7 @@ psycmsg		- send a message to a PSYC recipient
 psycnotify	- send presence notification from the command line
 psycsyncd	- interfaces PSYC SYNC protocol to DBI (SQL databases etc)
 syslog2psyc	- daemon that receives events from syslog and forwards to PSYC
-remotor		- control console for Tor routers that can notify into a PSYC chatroom
+remotor		- control console for Tor routers that can notify into PSYC
 
 contrib area includes a notification plugin for MovableType blogs.
 
@@ -45,4 +37,3 @@ from http://youbroketheinternet.org 's overlay.
 
 Questions? ask psyc://psyced.org/~lynX or psyc://psyced.org/~el
 
-</pre></td></tr></table>
