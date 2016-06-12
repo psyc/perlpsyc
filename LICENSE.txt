@@ -1,0 +1,2 @@
+This library and tools are dual-licensed by GPL-2 and Artistic.
+See inside for the formalities.

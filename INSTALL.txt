@@ -1,0 +1,10 @@
+You can simply move the contents of bin and lib into
+the respective directories of /usr/local and things
+should work from there. You can also put things into
+/usr/depot, then add /usr/depot/bin to your PATH.
+
+You may want to install a perl interpreter.
+
+For a proper integration into your Unix distribution,
+reach out for your vendor team.
+
