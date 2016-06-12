@@ -120,6 +120,7 @@ $params{'w'} = getPassword() unless (exists $params{'w'});
 my $config = ($params{'c'} && -e $params{'c'}) ? $params{'c'} :
      (-e $ENV{'PSYCIONLIB'}.'/basic.ion') ? $ENV{'PSYCIONLIB'}.'/basic.ion' :
      (-e $ENV{'PSYCLIB'}.'/ion/basic.ion') ? $ENV{'PSYCLIB'}.'/ion/basic.ion' :
+     (-e '/usr/lib/psyc/ion/basic.ion') ? '/usr/lib/psyc/ion/basic.ion' :
      (-e '/etc/psyc/ion/basic.ion') ? '/etc/psyc/ion/basic.ion' :
      (-e '/usr/local/lib/psyc/ion/basic.ion') 
 	? '/usr/local/lib/psyc/ion/basic.ion'
