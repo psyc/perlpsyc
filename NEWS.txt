@@ -1,0 +1,32 @@
+=== 2016-06-12 === Net::PSYC 1.0 ===
+
+The perlpsyc implementation has proven stable for years.
+The development of remotor has shown how powerful,
+reliable and easy to use it is. A bump up of the version
+to 1.0 was overdue, although the code is unchanged.
+
+
+=== 2016-06-12 === New tool remoTor ===
+
+Hi there. Here's a fine new little console-based perl script
+that lets you control your Tor, monitor circuits as they
+happen, issue commands like changing your identity etc, and
+forward critical events to a chatroom using the PSYC protocol.
+
+I found vidalia too heavy and arm too confusing and didn't
+see a simple tool that would leverage the Tor control protocol
+without excessive nuisances, just a bit of noise reduction and
+text coloring. Also I like notifications to show in my chat
+client.
+
+The notification feature works with a psyced running on the
+same host. I just committed a "remotor" chatroom which is
+preset to receive messages from the tool, all you need to do
+is install psyced and use your IRC client to join #remotor.
+
+For a quick little glimpse into the perl script, click
+        http://perl.psyc.eu/navigate/bin/remotor
+
+If anyone is interested, I can easily add the ability to control
+the Tor node from the chatroom.
+
