@@ -6,9 +6,9 @@
 <blockquote>
 <table><tr><td>
 <font size=7 style="font-size: 500%">perlpsyc ...</font><br/>
-<font size=2><a href="http://about.psyc.eu/">PSYC</a> IMPLEMENTATION IN <a href="http://perl.pages.de">PERL</a></font><br/>
+<pre><font size=2><a href="http://about.psyc.eu/">PSYC</a> IMPLEMENTATION IN <a href="http://perl.pages.de">PERL</a></font><br/>
 
-<pre>
+
 Net::PSYC with support for TCP, UDP, Event.pm, IO::Select and Gtk2 event loops.
 
 git2psyc	- report changes to a git repository into a developer chatroom
