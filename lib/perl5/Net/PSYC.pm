@@ -9,25 +9,30 @@ package Net::PSYC;
 #	 Official API Implementation in PERL.
 #	  See  http://www.psyc.eu  for further information.
 #
-# Copyright (c) 1998-2007 Carlo v. Loesch and Arne Goedeke.
+# Copyright (c) 1998-2016 Carlo v. Loesch and Arne Goedeke.
 # All rights reserved.
 #
-# This program is free software; you may redistribute it and/or modify it
-# under the same terms as Perl itself. Derivatives may not carry the
-# title "Official PSYC API Implementation" or equivalents.
+# ------------------------------------------------------------------------
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the Perl Artistic License or the GNU General Public 
+# License as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but 
+# WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more detail.
+# ------------------------------------------------------------------------
 #
 # Concerning UDP: No retransmissions or other safety strategies are
 # implemented - and none are specified in the PSYC spec. If you use
 # counters according to the spec you can implement your own safety
 # mechanism best suited for your application.
 #
-# Status: the Net::PSYC is pretty much stable. Just details and features
-# are being refined just as the protocol itself is, so from a software
-# developer's point of view this library is quite close to a 1.0 release.
-# After six years of development and usage that's presumably appropriate, too.
-
-# this library has been stable for years, and the 2016 development of remotor
-# showed that it works just fine. so let's bump it to a 1.0 release.	--lynX
+# Status: This library has been stable for years, and the development
+# of remotor showed that it works just fine. So let's bump it to a 1.0
+# release.	--lynX
+#
 our $VERSION = '1.0';
 
 use strict;
