@@ -3,3 +3,8 @@ half-source-ware for blogging by the ability to send
 change notifications to arbitrary PSYC uniforms.
 
 You may want to adapt this to other blog and wiki engines.
+
+This plugin was contributed to Net::PSYC by one of its
+authors and is licensed under the same conditions as
+Net::PSYC itself.
+

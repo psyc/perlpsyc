@@ -1,2 +1,3 @@
 This library and tools are dual-licensed by GPL-2 and Artistic.
-See inside for the formalities.
+One item in contrib was placed in the public domain instead.
+

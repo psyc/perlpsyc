@@ -2,8 +2,8 @@
 # To obtain the current full fledged version,
 # please consult http://about.psyc.eu/irssi
 
-
-# should this become Net::PSYC::Irssi.pm ?
+# this has been written by Dominik Sander
+# and was placed in the public domain
 
 use strict;
 use Irssi qw(active_win);
