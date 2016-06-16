@@ -75,14 +75,13 @@ while (<STDIN>) { # <old-value> SP <new-value> SP <ref-name> LF
 	       (?:,\ (\d+)\ insertion\S*)?
 	       (?:,\ (\d+)\ deletion\S*)?
            /gmsx) {
-	# ^\ (\d+)\ files\ changed,\ (\d+)\ insertions\(\+\),\ (\d+)\ deletions\(-\)
 	# after so many years, somebody broke the output of this git command!
         push @commits, {
             ref => $ref, hash => $1, abbrev_hash => substr($1, 0, 8),
             author => $2, author_email => $3, author_date => $4,
             commit => $5, commit_email => $6, commit_date => $7,
-            title => $8, stat_files_changed => $9, 
-	    stat_insertions => $10, stat_deletions => $11,
+            title => $8, stat_files_changed => $9 || '0', 
+	    stat_insertions => $10 || '0', stat_deletions => $11 || '0',
         };
     }
 }
