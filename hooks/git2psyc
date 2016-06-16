@@ -38,6 +38,7 @@ $config = $ARGV[0] if @ARGV && -f $ARGV[0];
 $config = $confname if !$config && -f $confname;
 $config = "../$confname" unless $config && -f $config;
 $config = "../../$confname" unless $config && -f $config;
+$config = "../../../$confname" unless $config && -f $config;
 die "Config file not found" unless $config && -f $config;
 
 our ($project, $target, $host, $port, $webview, $psycver, $debug);
@@ -70,7 +71,9 @@ while (<STDIN>) { # <old-value> SP <new-value> SP <ref-name> LF
             \n
             \s+(.*?)\n
             .*?
-            ^\ (\d+)\ files?\ changed,\ (.*)
+	    ^\ (?:(\d+)\ files?\ changed)?
+	       (?:,\ (\d+)\ insertion\S*)?
+	       (?:,\ (\d+)\ deletion\S*)?
            /gmsx) {
 	# ^\ (\d+)\ files\ changed,\ (\d+)\ insertions\(\+\),\ (\d+)\ deletions\(-\)
 	# after so many years, somebody broke the output of this git command!
@@ -78,9 +81,8 @@ while (<STDIN>) { # <old-value> SP <new-value> SP <ref-name> LF
             ref => $ref, hash => $1, abbrev_hash => substr($1, 0, 8),
             author => $2, author_email => $3, author_date => $4,
             commit => $5, commit_email => $6, commit_date => $7,
-            title => $8,
-            stat_files_changed => $9, stat_text => $10,
-	    # stat_insertions => $10, stat_deletions => $11,
+            title => $8, stat_files_changed => $9, 
+	    stat_insertions => $10, stat_deletions => $11,
         };
     }
 }
@@ -157,12 +159,12 @@ for my $c (reverse @commits) {
 :_date_committer\t$c->{commit_date}
 :_comment\t$c->{title}
 :_stat_files_changed\t$c->{stat_files_changed}
-:_stat_text\t$c->{stat_text}
+:_stat_insertions\t$c->{stat_insertions}
+:_stat_deletions\t$c->{stat_deletions}
 _notice_update_software_git
-[_project]: [_name_editor] "[_comment]" ([_stat_files_changed] files: [_stat_text]) [_page_commit]
+[_project]: [_name_editor] "[_comment]" ([_stat_files_changed] files: +[_stat_insertions] -[_stat_deletions]) [_page_commit]
 $delim
 X
-# +[_stat_insertions] -[_stat_deletions]
     print S $packet;
     print STDERR $packet if $debug;
     print "  \"$c->{title}\"\n" if $c->{title};
