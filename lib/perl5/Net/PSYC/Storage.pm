@@ -70,7 +70,7 @@ sub readpass {
 	return 0;
 }
 
-sub UNL () { $UNL || readUNL; }
+sub location () { $UNL || readUNL; }	# was: UNL
 sub UNI () { $UNI || readUNI; }
 sub pass { $pass || readpass($_[0]||$UNI); }
 sub nick () {

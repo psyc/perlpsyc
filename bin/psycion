@@ -20,7 +20,7 @@ sub HELP_MESSAGE {
 print <<X;
 Usage: psycion [--help] [-c configfile] [-l UNI] [-w password] [-s]
 
- -l UNI	link to the UNI
+ -l UNI	link to a specific PSYC uniform network identity
  -d N	Use debugging level N for Net::PSYC. Both 1 and 2 are insane
 	values. All output is written to STDERR.
  -D N	Use debugging level N for Net::PSYC. Output is written to
@@ -98,7 +98,7 @@ BEGIN {
 }
 
 sub sig_resize {
-    my $size;
+    my $size = "";
     my ($rows, $cols);
     # ENV may be the cheaper variant. 
     # the iocl() version is most likely not working for SCO UNIX. TODO
@@ -111,7 +111,11 @@ sub sig_resize {
 	# any ideas?? use 80x24 as fallback ??
 	($rows, $cols) = (24, 80);
     }
-    resize($rows, $cols);
+    if ($params{'m'}) {
+	PSYCion::MultiScreen::resize($rows, $cols);
+    } else {
+	PSYCion::SingleScreen::resize($rows, $cols);
+    }
 }
 
 $params{'w'} = getPassword() unless (exists $params{'w'});
@@ -132,7 +136,6 @@ X
 
 if ($params{'m'}) {
     require PSYCion::MultiScreen;
-    *resize = *PSYCion::MultiScreen::resize;
     PSYCion::MultiScreen::new(
 	'uni' => $params{'l'} || Net::PSYC::Storage::UNI(),
 	'password' => $params{'w'} || undef,
@@ -140,7 +143,6 @@ if ($params{'m'}) {
     );
 } else {
     require PSYCion::SingleScreen;
-    *resize = *PSYCion::SingleScreen::resize;
     PSYCion::SingleScreen::new( 
 	'uni' => $params{'l'} || Net::PSYC::Storage::UNI(),
 	'password' => $params{'w'} || undef,
@@ -172,7 +174,7 @@ psycion - a console PSYC client
 
 Usage: psycion [--help] [-c configfile] [-l UNI] [-w password] [-s]
 
- -l UNI	link to the UNI
+ -l UNI	link to a specific PSYC uniform network identity
  -d N	Use debugging level N for Net::PSYC. Both 1 and 2 are insane
 	values. All output is written to STDERR.
  -D N	Use debugging level N for Net::PSYC. Output is written to
