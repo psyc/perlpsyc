@@ -43,11 +43,11 @@ die "Config file not found" unless $config && -f $config;
 
 our ($project, $target, $host, $port, $webview, $psycver, $debug);
 our $pwd = cwd;
-do $config;
-
 # extract the project name from the path if nothing provided
 # this works for either project/ or project.git/ directories
-$project=$1 if !$project and $pwd =~ m#/([^/]+)/?\.git\b#;
+$project=$1 if $pwd =~ m#/([^/]+)/?\.git\b#;
+
+do $config;
 
 # GIT handling:
 my (@commits, @added, @deleted);
