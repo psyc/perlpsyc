@@ -21,13 +21,14 @@ use Getopt::Std;
 getopt('bclpmtHP');
 
 my $bind = $opt_b || "psyc://$ENV{USER}\@127.0.0.1:4051/\$remotor";
-my $method = $opt_m || '_notice_tor';
+my $method = $opt_m || '_notice_remotor';
 my $ini = $opt_c || "$ENV{HOME}/.tor/remotor.ini";
 
 my $socket = undef;
 my $target;
 my $log = undef;
 my %config;
+my %pv;
 
 ## SANDWICHES ##
 
@@ -56,7 +57,7 @@ sub torparse {
 	s/NEED_UPTIME\b/u/;
 	s/\$\w+~(\w+)\b/ MAGENTA. $1 .RESET /ge;
 	print YELLOW, $_, RESET, "\n";
-	sendmsg($target, $method, $_) if $target and
+	sendmsg($target, $method, $_, \%pv) if $target and
 	    /(FAIL|ERROR|DESTROY|SIGNAL|DANGER|LIVENESS|HIBERNATION|TRANSPORT|GUARD|BAD|HIJACKED|USELESS|UNREACHABLE|CLOCK|BUG|TOO_MANY)\b/;
 	print $log "> $_\n" if $log;
 	print $socket "\n";
@@ -64,7 +65,7 @@ sub torparse {
 
 sub keyparse {
 	$_ = <STDIN>;
-	exit if /^\s*q\s*$/i;
+	goto BYE if /^\s*q\s*$/i;
 	return &circtoggle if /^\s*t\s*$/i;
 	s/^\s*n\s*$/SIGNAL NEWNYM\n/i;
 	s/^\s*c\s*$/GETINFO circuit-status\n/i;
@@ -185,8 +186,13 @@ X
 
 	add($socket, 'r', \&torparse);
 	add(\*STDIN, 'r', \&keyparse);
-	sendmsg($target, $method."_start", "$0 started") if $target;
+	$pv{_nick} = $nick;
+	$pv{_command} = $0;
+	sendmsg($target, $method."_start", "[_command] started on [_nick].",
+		\%pv) if $target;
 	start_loop();
-	sendmsg($target, $method."_stop", "$0 stopped") if $target;
+BYE:
+	sendmsg($target, $method."_stop", "[_command] stopped on [_nick].",
+		\%pv) if $target;
 	exit;
 
