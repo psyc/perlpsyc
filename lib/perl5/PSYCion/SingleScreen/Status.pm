@@ -21,6 +21,7 @@ sub new {
 }
 
 sub msg {
+    # this msg handler is only used during login
     my ($self, $source, $mc, $data, $vars) = @_;
     $self->out($mc, $data, $vars);
     if ($mc =~ /^_notice_unlink/

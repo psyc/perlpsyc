@@ -48,7 +48,7 @@ sub leave_all {
 # only messages to be printed get here
 sub msg {
     my ($self, $source, $mc, $data, $vars) = @_;
-    
+ 
     $mc =~ s/^_message_public/$&_active/ 
 	if ($self eq PSYCion::Window::current());
     return $self->out($mc, $data, $vars);

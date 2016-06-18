@@ -280,6 +280,7 @@ sub render {
 	     : get_color('_default');
 
     my @wu = ();
+#   push(@wu, "($mc) ");    # debug view of incoming methods
     unless ($template) {
 	$template = $data;
     } else {

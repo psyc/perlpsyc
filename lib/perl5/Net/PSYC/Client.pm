@@ -367,9 +367,10 @@ tie %react, 'Net::PSYC::Tie::AbbrevHash';
 '_notice_unlink' => sub {
     my ($source, $mc, $data, $vars) = @_;
     my $obj = get_context($source);
-    return unless ($obj);
-
-    $obj->msg(@_);
+    $obj->msg(@_) if $obj;
+    # forcing my way out of psycion... $obj should probably handle this.. FIXME
+    print "\r", '-' x 44, "\n\r\n";
+    exit();
 },
 '_status_place' 	=> sub {
     my ($source, $mc, $data, $vars) = @_;
