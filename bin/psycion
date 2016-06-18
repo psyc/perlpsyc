@@ -1,4 +1,4 @@
-#!/usr/bin/perl -I/usr/depot/lib/perl5 -w
+#!/usr/bin/perl -I/usr/depot/lib/perl5
 #
 # psycion - a curses-based native PSYC communications client
 
