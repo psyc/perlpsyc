@@ -32,7 +32,7 @@ my %config;
 ## SANDWICHES ##
 
 sub say {
-	print BOLD, MAGENTA, @_, RESET, "\n";
+	print BOLD, GREEN, @_, RESET, "\n";
 }
 
 sub torparse {
@@ -54,7 +54,7 @@ sub torparse {
 	s/ONEHOP_TUNNEL\b/o/;
 	s/NEED_CAPACITY\b/c/;
 	s/NEED_UPTIME\b/u/;
-	s/\$\w+~(\w+)\b/ RED. $1 .RESET /ge;
+	s/\$\w+~(\w+)\b/ MAGENTA. $1 .RESET /ge;
 	print YELLOW, $_, RESET, "\n";
 	sendmsg($target, $method, $_) if $target and
 	    /(FAIL|ERROR|DESTROY|SIGNAL|DANGER|LIVENESS|HIBERNATION|TRANSPORT|GUARD|BAD|HIJACKED|USELESS|UNREACHABLE|CLOCK|BUG|TOO_MANY)\b/;
@@ -69,6 +69,7 @@ sub keyparse {
 	s/^\s*n\s*$/SIGNAL NEWNYM\n/i;
 	s/^\s*c\s*$/GETINFO circuit-status\n/i;
 	s/^\s*s\s*$/GETINFO stream-status\n/i;
+	s/^\s*g\s*$/GETINFO entry-guards\n/i;
 	if ( /^\s*(\S|help)\s*$/i ) {
 		print <<X;
 	*** Available shortcuts:
@@ -77,6 +78,7 @@ sub keyparse {
 		'c' for circuit-status
 		's' for stream-status
 		't' to toggle circuit events
+		'g' for the list of entry guards
 X
 		return;
 	}
@@ -93,7 +95,7 @@ sub circtoggle {
 
 sub msg {
 	my ($source, $mc, $data, $vars) = @_;
-	print MAGENTA, psyctext($data, $vars), RESET, "\n";
+	print BOLD, MAGENTA, psyctext($data, $vars), RESET, "\n";
 }
 
 # simple .ini file format parser taken from psyconf
