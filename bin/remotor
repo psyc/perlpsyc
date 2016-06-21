@@ -11,7 +11,13 @@ my $host = '127.0.0.1';	    # defaults to try
 my $port = 9051;
 my $circ = 1;		    # request real-time circuit activity by default?
 
-sub version() { "1.0" }
+sub version() { "1.1" }
+
+#  0: all debug statements will be optimized away by the perl compiler
+#  1: debug Tor control
+#  2: debug STDIN
+#  4: debug PSYC
+# 64: debug config parsing
 sub debug() { 0 }
 
 use IO::Socket::INET;
@@ -24,7 +30,7 @@ my $bind = $opt_b || "psyc://$ENV{USER}\@127.0.0.1:4051/\$remotor";
 my $method = $opt_m || '_notice_remotor';
 my $ini = $opt_c || "$ENV{HOME}/.tor/remotor.ini";
 
-my $socket = undef;
+my $torsock = undef;
 my $target;
 my $log = undef;
 my %config;
@@ -36,10 +42,22 @@ sub say {
 	print BOLD, GREEN, @_, RESET, "\n";
 }
 
+sub tellpsyc {
+	my ($mc, $text) = @_;
+	say "tellpsyc: ", $text if debug & 4;
+	sendmsg($target, $mc, $text, \%pv) if $target;
+}
+
+sub terror {
+	say "Error on the Tor control socket. $_";
+	goto BYE;
+}
+
 sub torparse {
-	$_ = <$socket>;
+	$_ = <$torsock>;
+	say "torparse($!): $_" if debug & 1;
 	chop; chop;
-	return unless $_;
+	terror unless $_;
 	return if $_ eq '510 Unrecognized command ""';
 	# we're not vidalia.. let's just show built circuits
 	return if /^650 CIRC \d+ (LAUNCHED|EXTENDED)/;
@@ -57,14 +75,15 @@ sub torparse {
 	s/NEED_UPTIME\b/u/;
 	s/\$\w+~(\w+)\b/ MAGENTA. $1 .RESET /ge;
 	print YELLOW, $_, RESET, "\n";
-	sendmsg($target, $method, $_, \%pv) if $target and
+	tellpsyc($method, $_) if
 	    /(FAIL|ERROR|DESTROY|SIGNAL|DANGER|LIVENESS|HIBERNATION|TRANSPORT|GUARD|BAD|HIJACKED|USELESS|UNREACHABLE|CLOCK|BUG|TOO_MANY)\b/;
 	print $log "> $_\n" if $log;
-	print $socket "\n";
+	print $torsock "\n";
 }
 
 sub keyparse {
 	$_ = <STDIN>;
+	say "keyparse: ", $_ if debug & 2;
 	goto BYE if /^\s*q\s*$/i;
 	return &circtoggle if /^\s*t\s*$/i;
 	s/^\s*n\s*$/SIGNAL NEWNYM\n/i;
@@ -83,19 +102,20 @@ sub keyparse {
 X
 		return;
 	}
-	print $socket $_;
+	print $torsock $_;
 	print $log "<<< $_" if $log;
 }
 
 sub circtoggle {
 	my $c = "SETEVENTS STATUS_CLIENT STATUS_GENERAL STATUS_SERVER";
 	$c .= " CIRC" if $circ;	    # CIRC is pretty verbose
-	print $socket $c, "\n";
+	print $torsock $c, "\n";
 	$circ = 1 - $circ;
 }
 
 sub msg {
 	my ($source, $mc, $data, $vars) = @_;
+	say "psyc: $mc from $source" if debug & 4;
 	print BOLD, MAGENTA, psyctext($data, $vars), RESET, "\n";
 }
 
@@ -113,7 +133,7 @@ sub iniparse {
 		die "cannot parse line $. in $cf\n\t$_\n";
 	}
 	close C;
-	say join ' ', keys %config if debug;
+	say join ' ', keys %config if debug & 64;
 }
 
 ## MAIN ###
@@ -164,9 +184,9 @@ of this computing device (in case you have any). The default
 entry will be used unless you specify a nickname.
 X
 	say "Trying to connect Tor router at $host:$port";
-	$socket = IO::Socket::INET->new( Proto => 'tcp',
+	$torsock = IO::Socket::INET->new( Proto => 'tcp',
 				PeerAddr => $host, PeerPort => $port);
-	die "Could not connect to $host:$port: $!" unless $socket;
+	die "Could not connect to $host:$port: $!" unless $torsock;
 	say "Connected to ControlPort at $host:$port";
 
 	bind_uniform( $bind );
@@ -175,7 +195,7 @@ X
 	print GREEN, "Taking Tor commands from STDIN. Type '?' for a list of shortcuts.\n", RESET;
 	print GREEN, "See also https://gitweb.torproject.org/torspec.git/plain/control-spec.txt\n", RESET;
 
-	print $socket <<X;
+	print $torsock <<X;
 AUTHENTICATE "$auth"
 USEFEATURE EXTENDED_EVENTS VERBOSE_NAMES
 X
@@ -184,15 +204,16 @@ X
 	    if $opt_l and not open($log, '>>', $opt_l);
 	print $log "\n\n\n\n\n*** New session ***\n\n" if $log;
 
-	add($socket, 'r', \&torparse);
+	# we could also be having 't'imer and 'i'dle events...
+	# see perldoc Net/PSYC/Event.pm for that
+	add($torsock, 'r', \&torparse);
+	add($torsock, 'e', \&terror);
 	add(\*STDIN, 'r', \&keyparse);
 	$pv{_nick} = $nick;
 	$pv{_command} = $0;
-	sendmsg($target, $method."_start", "[_command] started on [_nick].",
-		\%pv) if $target;
+	tellpsyc($method."_start", "[_command] started on [_nick].");
 	start_loop();
 BYE:
-	sendmsg($target, $method."_stop", "[_command] stopped on [_nick].",
-		\%pv) if $target;
+	tellpsyc($method."_stop", "[_command] stopped on [_nick].");
 	exit;
 
