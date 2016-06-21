@@ -86,6 +86,8 @@ sub keyparse {
 	say "keyparse: ", $_ if debug & 2;
 	goto BYE if /^\s*q\s*$/i;
 	return &circtoggle if /^\s*t\s*$/i;
+		# should be _converse
+	return tellpsyc("_message_remotor", $1) if m!^\s*/\s+(.*\S.*)$!;
 	s/^\s*n\s*$/SIGNAL NEWNYM\n/i;
 	s/^\s*c\s*$/GETINFO circuit-status\n/i;
 	s/^\s*s\s*$/GETINFO stream-status\n/i;
@@ -93,12 +95,13 @@ sub keyparse {
 	if ( /^\s*(\S|help)\s*$/i ) {
 		print <<X;
 	*** Available shortcuts:
-		'q' to quit
-		'n' for new identity
-		'c' for circuit-status
-		's' for stream-status
-		't' to toggle circuit events
-		'g' for the list of entry guards
+	    'q'		to quit
+	    'n'		for a new identity
+	    'c'		to see the circuit-status
+	    's'		to see the stream-status
+	    't'		to toggle delivery of circuit events
+	    'g'		for the list of entry guards
+	    '/ <msg>'	to send a message to the PSYC channel
 X
 		return;
 	}
@@ -116,7 +119,19 @@ sub circtoggle {
 sub msg {
 	my ($source, $mc, $data, $vars) = @_;
 	say "psyc: $mc from $source" if debug & 4;
-	print BOLD, MAGENTA, psyctext($data, $vars), RESET, "\n";
+	if ($mc =~ /^_(message|converse)/) {
+		# message echo will pass through here. legitimate users of
+		# your PSYC server can send a message back to the localhost
+		# process, so you may see an answer from somebody.
+		if (exists $vars->{_nick}) {
+			$_ = "<". $vars->{_nick} ."> ". $data;
+		} else {
+			$_ = "(". $source ."> ". $data;
+		}
+	} else {
+		$_ = psyctext($data, $vars);
+	}
+	print BOLD, MAGENTA, $_, RESET, "\n";
 }
 
 # simple .ini file format parser taken from psyconf
