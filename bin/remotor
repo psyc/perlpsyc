@@ -11,35 +11,50 @@ my $host = '127.0.0.1';	    # defaults to try
 my $port = 9051;
 my $circ = 1;		    # request real-time circuit activity by default?
 
-sub version() { "1.1" }
+sub version() { "1.2" }
 
 #  0: all debug statements will be optimized away by the perl compiler
 #  1: debug Tor control
 #  2: debug STDIN
 #  4: debug PSYC
-# 64: debug config parsing
-sub debug() { 0 }
+#  8: debug Tor log socket
+# 16: debug config parsing
+# 63: full debugging
+sub debug() { 8 }
+
+# if PSYC is enabled, should remotor really join the chatroom,
+# thus receive ongoing chat directly rather than just manually?
+sub chat() { 1 }
 
 use IO::Socket::INET;
-use Net::PSYC qw( :event );
-use Term::ANSIColor qw(:constants);
+use POSIX qw( mkfifo );			# optional, for -s option
+use Term::ANSIColor qw( :constants );	# optional but pervasive
+use Net::PSYC qw( :event );		# needed for event loop
 use Getopt::Std;
-getopt('bclpmtHP');
+getopt('bcilmpstHP');
 
 my $bind = $opt_b || "psyc://$ENV{USER}\@127.0.0.1:4051/\$remotor";
-my $method = $opt_m || '_notice_remotor';
 my $ini = $opt_c || "$ENV{HOME}/.tor/remotor.ini";
+my $torlog = $opt_s || "/var/run/tor/log.sock";
 
 my $torsock = undef;
+my $logsock = undef;
 my $target;
 my $log = undef;
 my %config;
 my %pv;
 
+
 ## SANDWICHES ##
 
 sub say {
 	print BOLD, GREEN, @_, RESET, "\n";
+}
+
+sub reallyquit { exit; }
+sub quit {
+	tellpsyc(chat? "_request_leave_remotor": "_notice_stopping_remotor", "[_command] stopping on [_nick].");
+	add(1, 't', \&reallyquit);
 }
 
 sub tellpsyc {
@@ -49,8 +64,10 @@ sub tellpsyc {
 }
 
 sub terror {
-	say "Error on the Tor control socket. $_";
-	goto BYE;
+	my $msg = "Error on the Tor control socket. $_";
+	say $msg;
+	tellpsyc('_warning_remotor', $msg);
+	return &quit;
 }
 
 sub torparse {
@@ -75,19 +92,27 @@ sub torparse {
 	s/NEED_UPTIME\b/u/;
 	s/\$\w+~(\w+)\b/ MAGENTA. $1 .RESET /ge;
 	print YELLOW, $_, RESET, "\n";
-	tellpsyc($method, $_) if
+	tellpsyc('_warning_remotor', $_) if
 	    /(FAIL|ERROR|DESTROY|SIGNAL|DANGER|LIVENESS|HIBERNATION|TRANSPORT|GUARD|BAD|HIJACKED|USELESS|UNREACHABLE|CLOCK|BUG|TOO_MANY)\b/;
 	print $log "> $_\n" if $log;
 	print $torsock "\n";
 }
 
+sub torlogparse {
+	$_ = <$logsock>;
+	say "torlogparse: $_" if debug & 8;
+	return unless /\basked\b/;
+	print CYAN, $_, RESET, "\n";
+	tellpsyc('_notice_remotor_monitor', $_) if $opt_f;
+}
+
 sub keyparse {
 	$_ = <STDIN>;
 	say "keyparse: ", $_ if debug & 2;
-	goto BYE if /^\s*q\s*$/i;
+	return &quit if /^\s*q\s*$/i;
 	return &circtoggle if /^\s*t\s*$/i;
 		# should be _converse
-	return tellpsyc("_message_remotor", $1) if m!^\s*/\s+(.*\S.*)$!;
+	return tellpsyc("_message_public", $1) if m!^\s*/\s+(.*\S.*)$!;
 	s/^\s*n\s*$/SIGNAL NEWNYM\n/i;
 	s/^\s*c\s*$/GETINFO circuit-status\n/i;
 	s/^\s*s\s*$/GETINFO stream-status\n/i;
@@ -148,8 +173,13 @@ sub iniparse {
 		die "cannot parse line $. in $cf\n\t$_\n";
 	}
 	close C;
-	say join ' ', keys %config if debug & 64;
+	say join ' ', keys %config if debug & 16;
 }
+
+sub idlebilly {
+	print $torsock "GETINFO stream-status\n";
+}
+
 
 ## MAIN ###
 
@@ -179,10 +209,12 @@ Options:
 	-H <host>	Tor router host
 	-P <port>	Tor router control port
 	-l <logfile>	Keep a transaction log
+	-i <seconds>	Request a stream status if idle for a while
+	-s <socket>	Scan a Tor logging socket for interesting events
+	-f		Forward circuit creation requests to PSYC
 	-c <config>	Alternate configuration file to use
 	-t <uniform>	PSYC address to send notifications to
 	-b <uniform>	PSYC address to bind to
-	-m <method>	PSYC method to use
 
 <nickname> matches an entry from the $ini file.
 Here's an example for the ini syntax in use:
@@ -213,22 +245,33 @@ X
 	print $torsock <<X;
 AUTHENTICATE "$auth"
 USEFEATURE EXTENDED_EVENTS VERBOSE_NAMES
+GETINFO stream-status
 X
 	&circtoggle;
+
+	if ($opt_s and not -p $torlog) {
+		undef $!;
+		die "Could not mkfifo $torlog: $!" unless mkfifo $torlog, 0600;
+		system('chgrp', 'tor', $torlog) and chmod 0660, $torlog;
+	} elsif (not -p $torlog) {
+		undef $torlog;
+	}
+	if ($torlog) {
+		open($logsock, $torlog) or die "Cannot read from $torlog: $!";
+		add($logsock, 'r', \&torlogparse);
+	}
+
 	die "Cannot write to $opt_l: $!"
 	    if $opt_l and not open($log, '>>', $opt_l);
 	print $log "\n\n\n\n\n*** New session ***\n\n" if $log;
 
-	# we could also be having 't'imer and 'i'dle events...
-	# see perldoc Net/PSYC/Event.pm for that
 	add($torsock, 'r', \&torparse);
 	add($torsock, 'e', \&terror);
 	add(\*STDIN, 'r', \&keyparse);
+	add($opt_i, 'i', \&idlebilly) if $opt_i;
 	$pv{_nick} = $nick;
 	$pv{_command} = $0;
-	tellpsyc($method."_start", "[_command] started on [_nick].");
+	tellpsyc(chat? "_request_enter_remotor": "_notice_starting_remotor", "[_command] starting on [_nick].");
 	start_loop();
-BYE:
-	tellpsyc($method."_stop", "[_command] stopped on [_nick].");
 	exit;
 
