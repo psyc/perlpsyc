@@ -236,16 +236,31 @@ Options:
 <nickname> matches an entry from the $ini file.
 Here's an example for the ini syntax in use:
 
-[default]
-host=192.168.0.1
-port=9051
-auth=somesecretrandomstring
-notify=psyc://127.0.0.1/\@remotor
+	[default]
+	host=192.168.0.1
+	port=9051
+	auth=somesecretrandomstring
+	notify=psyc://127.0.0.1/\@remotor
 
 The configuration file is a safer place to store authentication
 strings than the command line which can be read by other users
 of this computing device (in case you have any). The default
 entry will be used unless you specify a nickname.
+
+If you need to monitor all outgoing circuits of your Tor router
+(maybe because you have devices in your house you don't trust),
+then the Tor control protocol will not give you complete control.
+remotor can additionally monitor the debug log of the Tor process
+using the -s and/or -f flags. In this case remotor needs to be
+running on the same system as the Tor router. In the torrc you
+need to modify the way logging parameters as follows:
+
+	SafeLogging relay
+	LogMessageDomains 1
+	Log [app]debug file /var/run/tor/log.sock
+
+You can use a different path and pass it using -s. remotor will 
+attempt to mkfifo the necessary pipe if it is missing.
 X
 	if ($auth) {
 		say "Trying to connect Tor router at $host:$port";
