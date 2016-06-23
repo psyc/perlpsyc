@@ -73,7 +73,7 @@ sub terror {
 sub torparse {
 	$_ = <$torsock>;
 	say "torparse($!): $_" if debug & 1;
-	chop; chop;
+	chop; chomp;
 	terror unless $_;
 	return if $_ eq '510 Unrecognized command ""';
 	# we're not vidalia.. let's just show built circuits
@@ -100,19 +100,24 @@ sub torparse {
 
 sub torlogparse {
 	$_ = <$logsock>;
+	chop; chomp;
+	if ( / \[debug\] / ) {
+		return unless / \{APP\} connection_ap_handshake_rewrite... Client asked for (\S+)$/;
+		print CYAN, $1, RESET, "\n";
+		tellpsyc('_notice_remotor_monitor', $1) if $opt_f;
+		return;
+	}
 	say "torlogparse: $_" if debug & 8;
-	return unless /\basked\b/;
-	print CYAN, $_, RESET, "\n";
-	tellpsyc('_notice_remotor_monitor', $_) if $opt_f;
 }
 
 sub keyparse {
 	$_ = <STDIN>;
 	say "keyparse: ", $_ if debug & 2;
 	return &quit if /^\s*q\s*$/i;
-	return &circtoggle if /^\s*t\s*$/i;
 		# should be _converse
 	return tellpsyc("_message_public", $1) if m!^\s*/\s+(.*\S.*)$!;
+	return unless $torsock;
+	return &circtoggle if /^\s*t\s*$/i;
 	s/^\s*n\s*$/SIGNAL NEWNYM\n/i;
 	s/^\s*c\s*$/GETINFO circuit-status\n/i;
 	s/^\s*s\s*$/GETINFO stream-status\n/i;
@@ -199,7 +204,19 @@ sub idlebilly {
 	$target = $opt_t || $config{"$nick:notify"}
 			 || $config{"default:notify"};
 
-	die <<X unless $auth;
+	if ($opt_s and not -p $torlog) {
+		undef $!;
+		die "Could not mkfifo $torlog: $!" unless mkfifo $torlog, 0600;
+		system('chgrp', 'tor', $torlog) and chmod 0660, $torlog;
+	} elsif (not -p $torlog) {
+		undef $torlog;
+	}
+	if ($torlog) {
+		open($logsock, $torlog) or die "Cannot read from $torlog: $!";
+		add($logsock, 'r', \&torlogparse);
+	}
+
+	die <<X unless $auth or $torlog;
 Is $host:$port the host and port your Tor router answers on?
 
 Usage: $0 [<options>] [<nickname>]
@@ -230,43 +247,33 @@ strings than the command line which can be read by other users
 of this computing device (in case you have any). The default
 entry will be used unless you specify a nickname.
 X
-	say "Trying to connect Tor router at $host:$port";
-	$torsock = IO::Socket::INET->new( Proto => 'tcp',
-				PeerAddr => $host, PeerPort => $port);
-	die "Could not connect to $host:$port: $!" unless $torsock;
-	say "Connected to ControlPort at $host:$port";
+	if ($auth) {
+		say "Trying to connect Tor router at $host:$port";
+		$torsock = IO::Socket::INET->new( Proto => 'tcp',
+						  PeerAddr => $host,
+						  PeerPort => $port);
+		die "Could not connect to $host:$port: $!" unless $torsock;
+		say "Connected to ControlPort at $host:$port";
 
-	bind_uniform( $bind );
-	register_uniform();
-	say "Listening for PSYC controls on $bind";
-	print GREEN, "Taking Tor commands from STDIN. Type '?' for a list of shortcuts.\n", RESET;
-	print GREEN, "See also https://gitweb.torproject.org/torspec.git/plain/control-spec.txt\n", RESET;
+		bind_uniform( $bind );
+		register_uniform();
+		say "Listening for PSYC controls on $bind";
+		print GREEN, "Taking Tor commands from STDIN. Type '?' for a list of shortcuts.\n", RESET;
+		print GREEN, "See also https://gitweb.torproject.org/torspec.git/plain/control-spec.txt\n", RESET;
 
-	print $torsock <<X;
+		print $torsock <<X;
 AUTHENTICATE "$auth"
 USEFEATURE EXTENDED_EVENTS VERBOSE_NAMES
 GETINFO stream-status
 X
-	&circtoggle;
-
-	if ($opt_s and not -p $torlog) {
-		undef $!;
-		die "Could not mkfifo $torlog: $!" unless mkfifo $torlog, 0600;
-		system('chgrp', 'tor', $torlog) and chmod 0660, $torlog;
-	} elsif (not -p $torlog) {
-		undef $torlog;
+		&circtoggle;
+		add($torsock, 'r', \&torparse);
+		add($torsock, 'e', \&terror);
 	}
-	if ($torlog) {
-		open($logsock, $torlog) or die "Cannot read from $torlog: $!";
-		add($logsock, 'r', \&torlogparse);
-	}
-
 	die "Cannot write to $opt_l: $!"
 	    if $opt_l and not open($log, '>>', $opt_l);
 	print $log "\n\n\n\n\n*** New session ***\n\n" if $log;
 
-	add($torsock, 'r', \&torparse);
-	add($torsock, 'e', \&terror);
 	add(\*STDIN, 'r', \&keyparse);
 	add($opt_i, 'i', \&idlebilly) if $opt_i;
 	$pv{_nick} = $nick;
