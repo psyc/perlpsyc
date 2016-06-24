@@ -155,7 +155,7 @@ if ($params{'m'}) {
 
 =head1 NAME
 
-psycion - a console PSYC client
+psycion - a curses-based native PSYC communications client
 
 =head1 SYNOPSIS
 

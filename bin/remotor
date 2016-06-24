@@ -311,7 +311,7 @@ lets you have this information and even lets you study it later
 rather than having to keep your eyes on the control console
 all the time.
 
-=head2 Forward messages to a chatroom
+=head2 Forwarding messages to a chatroom
 
 remotor can forward critical Tor events to a chatroom using
 the PSYC protocol. With an advanced server such as psyced
@@ -344,7 +344,7 @@ Here's an example for the ini syntax in use:
 	host=192.168.0.1
 	port=9051
 	auth=somesecretrandomstring
-	notify=psyc://127.0.0.1/\@remotor
+	notify=psyc://127.0.0.1/@remotor
 
 The configuration file is a safer place to store authentication
 strings than the command line which can be read by other users
@@ -358,7 +358,7 @@ entry will be used unless you specify a nickname.
 remotor can additionally monitor the debug log of the Tor process
 using the -s and/or -f flags. In this case remotor needs to be
 running on the same system as the Tor router. In the torrc you
-need to modify the way logging parameters as follows:
+need to modify the logging parameters as follows:
 
 	SafeLogging relay
 	LogMessageDomains 1
