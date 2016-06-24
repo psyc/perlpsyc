@@ -168,10 +168,8 @@ Usage: psycion [--help] [-c configfile] [-l UNI] [-w password] [-s]
 	psycion's status window.
  -s	dont use color codes
  -m	start in multi-window mode. ( requires Curses )
-
  --help	
  -h	display this message
-
 
 =head1 COMMANDS
 
@@ -234,8 +232,6 @@ Clear the current window. Removes all messages.
 =head2 remove
 
 =head2 reply
-
-STATUS
 
 =head2 drop
 

@@ -19,8 +19,9 @@ html: htdocs
 htdocs:
 	mkdir -p $@ $M/man1 $M/man3
 
+# just to give you a rough idea
 install: $D/share
-	# just a rough idea
+	# please provide destination prefix in export DESTDIR=/usr/local or so
 	install bin/* $D/bin
 	cp -rp lib/* $D/lib
 	cp -rp share/* $D/share
