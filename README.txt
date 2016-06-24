@@ -30,7 +30,6 @@ get it from http://about.psyc.eu/irssi
 *) psycmp3 unfortunately depends on a non-free mp3 engine from 1998.
    You may want to await an adaptation to a free framework.
 
-*) remotor is a useful Tor controller with or without PSYC server
 
 Websites:
 
