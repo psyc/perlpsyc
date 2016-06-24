@@ -744,18 +744,18 @@ sub parse_psyc {
     $d = $$d if (ref $d eq 'SCALAR');
 
     my $linefeed = shift;
-=state
-    my $o;
-    if (ref $linefeed) {
-	$o = $linefeed;
-	$linefeed = "\n";
-    } else {
-	$linefeed ||= "\n";
-	$o = shift;
-    }
-    my $iscontext = shift;
-    my $source = shift;
-=cut
+#=state
+#    my $o;
+#    if (ref $linefeed) {
+#	$o = $linefeed;
+#	$linefeed = "\n";
+#    } else {
+#	$linefeed ||= "\n";
+#	$o = shift;
+#    }
+#    my $iscontext = shift;
+#    my $source = shift;
+#=cut
     $linefeed ||= "\n";
 
     my ($mc, $data, $vars) = ( '', '', {} );
@@ -811,17 +811,17 @@ sub parse_psyc {
 	    }
 	    if ($lmod eq ':') {
 		$vars->{$lvar} = $lval;
-=state
-	    } elsif (ref $o) {
-		# TODO same as above. I will change that. 
-		if ($lmod eq '=') {
-		    $o->assign($lvar, $lval, $source, $iscontext);
-		} elsif ($lmod eq '+') {
-		    $o->augment($lvar, $lval, $source, $iscontext);
-		} elsif ($lmod eq '-') {
-		    $o->diminish($lvar, $lval, $source, $iscontext);
-		}
-=cut
+#=state
+#	    } elsif (ref $o) {
+#		# TODO same as above. I will change that. 
+#		if ($lmod eq '=') {
+#		    $o->assign($lvar, $lval, $source, $iscontext);
+#		} elsif ($lmod eq '+') {
+#		    $o->augment($lvar, $lval, $source, $iscontext);
+#		} elsif ($lmod eq '-') {
+#		    $o->diminish($lvar, $lval, $source, $iscontext);
+#		}
+#=cut
 	    } else {
 		$vars->{$lmod.$lvar} = $lval;
 	    }
@@ -879,20 +879,20 @@ sub make_mmp {
 	} else { $mod = ':'; }
 
 	$m .= make_header($mod, $var, $vars->{$_}) if ISMMPVAR($var); 
-=state
-	    if (ISMMPVAR($var) && 
-	    (!$state || $state->outstate($mod, $var, $vars->{$_})));
-=cut
+#=state
+#	    if (ISMMPVAR($var) && 
+#	    (!$state || $state->outstate($mod, $var, $vars->{$_})));
+#=cut
     }
-=state
-    if ($state) {
-	my $v = $state->state();
-	
-	foreach (keys %$v) {
-	    $m .= make_header(':', $_, $v->{$_});
-	}
-    }
-=cut
+#=state
+#    if ($state) {
+#	my $v = $state->state();
+#	
+#	foreach (keys %$v) {
+#	    $m .= make_header(':', $_, $v->{$_});
+#	}
+#    }
+#=cut
 
     if (!$data) {
 	$m .= ".\n";
@@ -919,21 +919,21 @@ sub make_psyc {
 	} else { $mod = ':'; }
 
 	$m .= make_header($mod, $var, $vars->{$var}) unless ISMMPVAR($var);
-=state
-	    if (!ISMMPVAR($var) && 
-	    (!$state || $state->outstate($mod, $var, $vars->{$var}, $target, 
-					 $iscontext)));
-=cut
+#=state
+#	    if (!ISMMPVAR($var) && 
+#	    (!$state || $state->outstate($mod, $var, $vars->{$var}, $target, 
+#					 $iscontext)));
+#=cut
     }
-=state
-    if ($state) {
-	my $v = $state->state($target, $iscontext);
-	
-	foreach (keys %$v) {
-	    $m .= make_header(':', $_, $v->{$_});
-	}
-    }
-=cut
+#=state
+#    if ($state) {
+#	my $v = $state->state($target, $iscontext);
+#	
+#	foreach (keys %$v) {
+#	    $m .= make_header(':', $_, $v->{$_});
+#	}
+#    }
+#=cut
 
     $m .= $mc;
     $m .= "\n" if ($m && $data);
@@ -1246,7 +1246,7 @@ For further details.. Use The Source, Luke!
 
 =head1 SEE ALSO
 
-L<Net::PSYC::Event>, L<Net::PSYC::Client>, L<http://www.psyc.eu> for more information about the PSYC protocol, L<http://www.psyced.org> for a rather mature PSYC server implementation (also offering IRC, Jabber and a Telnet interface) , L<http://perlpsyc.pages.de> for a bunch of applications using Net::PSYC.
+L<Net::PSYC::Event>, L<Net::PSYC::Client>, L<http://www.psyc.eu> for more information about the PSYC protocol, L<http://www.psyced.org> for a rather mature PSYC server implementation (also offering IRC, Jabber and a Telnet interface) , L<http://perl.psyc.eu> for a bunch of applications using Net::PSYC.
 
 =head1 AUTHORS
 
@@ -1260,13 +1260,13 @@ L<http://symlynX.com/>
 =item Arne GE<ouml>deke
 
 L<psyc://psyced.org/~el>
-L<http://www.lionmen.de/>
+L<http://lionmen.de/>
 
 =back
 
 =head1 COPYRIGHT
 
-Copyright (c) 1998-2005 Carlo v. Loesch and Arne GE<ouml>deke. All rights reserved.
+Copyright (c) 1998-2016 Carlo v. Loesch and Arne GE<ouml>deke. All rights reserved.
 
 This program is free software; you may redistribute it and/or modify it
 under the same terms as Perl itself. Derivatives may not carry the

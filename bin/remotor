@@ -28,9 +28,10 @@ sub chat() { 1 }
 
 use IO::Socket::INET;
 use POSIX qw( mkfifo );			# optional, for -s option
+use Pod::Usage qw( pod2usage );
 use Term::ANSIColor qw( :constants );	# optional but pervasive
 use Net::PSYC qw( :event );		# needed for event loop
-use Getopt::Std;
+use Getopt::Std qw( getopt );
 getopt('bcilmpstHP');
 
 my $bind = $opt_b || "psyc://$ENV{USER}\@127.0.0.1:4051/\$remotor";
@@ -73,7 +74,7 @@ sub terror {
 sub torparse {
 	$_ = <$torsock>;
 	say "torparse($!): $_" if debug & 1;
-	chop; chomp;
+	chop; chop;
 	terror unless $_;
 	return if $_ eq '510 Unrecognized command ""';
 	# we're not vidalia.. let's just show built circuits
@@ -154,9 +155,9 @@ sub msg {
 		# your PSYC server can send a message back to the localhost
 		# process, so you may see an answer from somebody.
 		if (exists $vars->{_nick}) {
-			$_ = "<". $vars->{_nick} ."> ". $data;
+			$_ = "<". $vars->{_nick} ."> ". YELLOW . $data;
 		} else {
-			$_ = "(". $source ."> ". $data;
+			$_ = "(". $source .") ". YELLOW . $data;
 		}
 	} else {
 		$_ = psyctext($data, $vars);
@@ -216,52 +217,15 @@ sub idlebilly {
 		add($logsock, 'r', \&torlogparse);
 	}
 
-	die <<X unless $auth or $torlog;
+	if ($opt_h or !$auth && !$torlog) {
+		print <<X;
+
 Is $host:$port the host and port your Tor router answers on?
 
-Usage: $0 [<options>] [<nickname>]
-
-Options:
-	-p <password>	Authentication string needed to take control
-	-H <host>	Tor router host
-	-P <port>	Tor router control port
-	-l <logfile>	Keep a transaction log
-	-i <seconds>	Request a stream status if idle for a while
-	-s <socket>	Scan a Tor logging socket for interesting events
-	-f		Forward circuit creation requests to PSYC
-	-c <config>	Alternate configuration file to use
-	-t <uniform>	PSYC address to send notifications to
-	-b <uniform>	PSYC address to bind to
-
-<nickname> matches an entry from the $ini file.
-Here's an example for the ini syntax in use:
-
-	[default]
-	host=192.168.0.1
-	port=9051
-	auth=somesecretrandomstring
-	notify=psyc://127.0.0.1/\@remotor
-
-The configuration file is a safer place to store authentication
-strings than the command line which can be read by other users
-of this computing device (in case you have any). The default
-entry will be used unless you specify a nickname.
-
-If you need to monitor all outgoing circuits of your Tor router
-(maybe because you have devices in your house you don't trust),
-then the Tor control protocol will not give you complete control.
-remotor can additionally monitor the debug log of the Tor process
-using the -s and/or -f flags. In this case remotor needs to be
-running on the same system as the Tor router. In the torrc you
-need to modify the way logging parameters as follows:
-
-	SafeLogging relay
-	LogMessageDomains 1
-	Log [app]debug file /var/run/tor/log.sock
-
-You can use a different path and pass it using -s. remotor will 
-attempt to mkfifo the necessary pipe if it is missing.
 X
+		pod2usage;
+	}
+
 	if ($auth) {
 		say "Trying to connect Tor router at $host:$port";
 		$torsock = IO::Socket::INET->new( Proto => 'tcp',
@@ -296,4 +260,121 @@ X
 	tellpsyc(chat? "_request_enter_remotor": "_notice_starting_remotor", "[_command] starting on [_nick].");
 	start_loop();
 	exit;
+
+__END__
+
+=pod
+
+=head1 NAME
+
+remoTor - a control console for Tor routers with PSYC notification
+
+=head1 SYNOPSIS
+
+remotor [<options>] [<nickname>]
+
+ Options:
+	 -p <password>	Authentication string needed to take control
+	 -H <host>	Tor router host
+	 -P <port>	Tor router control port
+	 -l <logfile>	Keep a transaction log
+	 -i <seconds>	Request a stream status if idle for a while
+	 -s <socket>	Scan a Tor logging socket for interesting events
+	 -f		Forward circuit creation requests to PSYC
+	 -c <config>	Alternate configuration file to use
+	 -t <uniform>	PSYC address to send notifications to
+	 -b <uniform>	PSYC address to bind to
+
+<nickname> matches an entry from the <config> file.
+
+=head1 DESCRIPTION
+
+Here's a little console-based perl script that lets you control
+your Tor process, monitor circuits as they happen, issue commands
+like changing your identity and such.
+
+I found vidalia too heavy and arm too confusing and didn't see 
+a simple tool that would leverage the Tor control protocol
+without excessive nuisances, just a bit of noise reduction and
+text coloring.
+
+=head2 Monitoring outgoing connections
+
+When remotor is running on the same machine as tor, it can
+additionally monitor the hostnames the tor process is building
+circuits for. You may want to do this if you have devices in
+your house that you don't trust, for example. The regular Tor
+control protocol doesn't let you have this information other
+than by continously polling the stream status, and even then
+you may miss out on some short exfiltration going on. remotor
+lets you have this information and even let you study it later
+rather than having to keep your eyes on the control console
+all the time.
+
+=head2 Forward messages to a chatroom
+
+remotor can forward critical Tor events to a chatroom using
+the PSYC protocol. With an advanced server such as psyced
+you can use a regular IRC client to view the messages, but
+you can also use a simple 'psyclisten' as provided with the
+Net::PSYC library. Let it run and pass its bind address to
+remotor using the '-t' flag.
+
+psyced comes with a "remotor" place which is preset to 
+receive messages from this tool, all you need to do is 
+install psyced and use your IRC client to join #remotor.
+
+remotor can also forward host monitoring, if you enabled that.
+Additionally a person at the remotor console can interact with
+the people in the chatroom using the built-in chat.
+
+Be careful when you use other IP addresses than localhost since
+Net::PSYC does not encrypt its packets. You may want to learn
+about SSH port forwarding, gnunet-vpn, cjdns or other tunneling 
+strategies.
+
+=head1 CONFIGURATION
+
+You may want to persist certain configuration settings or
+keep separate configurations for different Tor routers.
+The default config file resides in ~/.tor/remotor.ini.
+Here's an example for the ini syntax in use:
+
+	[default]
+	host=192.168.0.1
+	port=9051
+	auth=somesecretrandomstring
+	notify=psyc://127.0.0.1/\@remotor
+
+The configuration file is a safer place to store authentication
+strings than the command line which can be read by other users
+of the computing device (in case you have any). The 'default'
+entry will be used unless you specify a nickname.
+
+=head1 OPTIONS
+
+=head2 Monitoring outgoing connections
+
+remotor can additionally monitor the debug log of the Tor process
+using the -s and/or -f flags. In this case remotor needs to be
+running on the same system as the Tor router. In the torrc you
+need to modify the way logging parameters as follows:
+
+	SafeLogging relay
+	LogMessageDomains 1
+	Log [app]debug file /var/run/tor/log.sock
+
+You can use a different path and pass it using -s. remotor will 
+attempt to mkfifo the necessary pipe if it is missing, so run
+remotor *before* you restart tor.
+
+=head1 AUTHORS
+
+carlo von lynX.
+
+=head1 COPYRIGHT
+
+This program is free software, published under the Affero GNU Public
+License. A disclaimer isn't necessary in my country, nor do I need
+to mention the current year to assert a copyright.
 
