@@ -271,8 +271,8 @@ remoTor - a console-based Tor controller and log analyzer with PSYC notification
 
 =head1 SYNOPSIS
 
-remotor [<options>] [<nickname>]
-
+ remotor [<options>] [<nickname>]
+ 
  Options:
 	 -p <password>	Authentication string needed to take control
 	 -H <host>	Tor router host
@@ -284,8 +284,8 @@ remotor [<options>] [<nickname>]
 	 -c <config>	Alternate configuration file to use
 	 -t <uniform>	PSYC address to send notifications to
 	 -b <uniform>	PSYC address to bind to
-
-<nickname> matches an entry from the <config> file.
+ 
+ <nickname> matches an entry from the <config> file.
 
 =head1 DESCRIPTION
 
