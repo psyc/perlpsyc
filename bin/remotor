@@ -20,7 +20,7 @@ sub version() { "1.2" }
 #  8: debug Tor log socket
 # 16: debug config parsing
 # 63: full debugging
-sub debug() { 8 }
+sub debug() { 0 }
 
 # if PSYC is enabled, should remotor really join the chatroom,
 # thus receive ongoing chat directly rather than just manually?
@@ -103,11 +103,14 @@ sub torlogparse {
 	chop; chomp;
 	if ( / \[debug\] / ) {
 		return unless / \{APP\} connection_ap_handshake_rewrite... Client asked for (\S+)$/;
-		print CYAN, $1, RESET, "\n";
+		print CYAN, "Request for $1", RESET, "\n";
 		tellpsyc('_notice_remotor_monitor', $1) if $opt_f;
 		return;
+	} elsif ( / \[info\] / ) {
+		say "torlogparse: $_" if debug & 8;
+		return;
 	}
-	say "torlogparse: $_" if debug & 8;
+	say $_;
 }
 
 sub keyparse {
