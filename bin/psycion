@@ -7,6 +7,7 @@ use strict;
 #  for several reasons... flexibility, beauty, brass balls 
 use Getopt::Std;
 use Time::HiRes;
+use Pod::Usage qw(pod2usage);
 
 my (%params, %key2hex);
 our $VERSION = '0.5';
@@ -17,21 +18,7 @@ sub VERSION_MESSAGE {
 }
 
 sub HELP_MESSAGE {
-print <<X;
-Usage: psycion [--help] [-c configfile] [-l UNI] [-w password] [-s]
-
- -l UNI	link to a specific PSYC uniform network identity
- -d N	Use debugging level N for Net::PSYC. Both 1 and 2 are insane
-	values. All output is written to STDERR.
- -D N	Use debugging level N for Net::PSYC. Output is written to
-	psycion's status window.
- -s	dont use color codes
- -m	start in multi-window mode. ( requires Curses )
-
- --help	
- -h	display this message
-
-X
+    pod2usage;
 }
 
 BEGIN {
@@ -41,7 +28,7 @@ BEGIN {
     getopts('l:w:c:smvhd:', \%params);
     unless (eval {require Curses}) {
     die <<X;
-The current version of psycion requires the perl modules 'Curses'.
+This version of psycion requires the perl modules 'Curses'.
 X
     }
     if ($params{'v'}) {
@@ -168,7 +155,7 @@ if ($params{'m'}) {
 
 =head1 NAME
 
-psycion - a console PSYC client
+psycion - a curses-based native PSYC communications client
 
 =head1 SYNOPSIS
 
@@ -181,10 +168,8 @@ Usage: psycion [--help] [-c configfile] [-l UNI] [-w password] [-s]
 	psycion's status window.
  -s	dont use color codes
  -m	start in multi-window mode. ( requires Curses )
-
  --help	
  -h	display this message
-
 
 =head1 COMMANDS
 
@@ -247,8 +232,6 @@ Clear the current window. Removes all messages.
 =head2 remove
 
 =head2 reply
-
-STATUS
 
 =head2 drop
 
@@ -364,7 +347,7 @@ psycion has been written by Arne Goedeke, with contributions from Carlo v. Loesc
 
 =head1 COPYRIGHT AND DISCLAIMER
 
-This program is Copyright 2003-2006 by Arne Goedeke. This program is free software; you can redistribute it and/or modify it under the terms of the Perl Artistic License or the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.
+This program is Copyright 2003-2016 by Arne Goedeke. This program is free software; you can redistribute it and/or modify it under the terms of the Perl Artistic License or the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.
         
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more detail.
     

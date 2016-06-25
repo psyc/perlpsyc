@@ -1,3 +1,30 @@
+=== 2016-06-24 === remoTor 1.2 ===
+
+When remoTor is running on the same machine as tor, it can
+now also monitor the hostnames the tor process is building
+circuits for. You may want to do this if you have devices in
+your house that you don't trust, for example. The regular Tor
+control protocol doesn't let you have this information other
+than by continously polling the stream status, and even then
+you may miss out on some short exfiltration going on. remoTor
+lets you have this information and even lets you study it
+later rather than having to keep your eyes on the control
+console all the time.
+
+Also, a person at the remoTor console can now interact with
+the people in the chatroom using the built-in chat. No PSYC
+software is complete if it isn't also a chat client. You can
+also forward the hostname monitoring information to that
+chatroom, or simply use a 'psyclisten' if you don't like to
+install an entire psyced server. psyclisten is provided with
+the perlpsyc library.
+
+remoTor and psycion now have their own web pages generated
+out of perldoc:
+    http://perlpsyc.cheettyiapsyciew.onion/remotor
+    http://perlpsyc.cheettyiapsyciew.onion/psycion
+
+
 === 2016-06-21 ===
 
 Enhancements and fixes in remotor and psycion.

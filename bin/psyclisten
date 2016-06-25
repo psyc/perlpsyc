@@ -1,16 +1,13 @@
-#!/usr/bin/perl -I/usr/depot/lib/perl5 -w
+#!/usr/bin/perl -I/usr/depot/lib/perl5
 #
 # listen for PSYC packets and dump them
 
-use Getopt::Std;
-getopt('b');
-				# make the library sweat a little
-my $uni = $opt_b || "psyc://$ENV{USER}\@127.0.0.1:2244c/\$$0";
-
+use Term::ANSIColor qw( :constants );   # optional but pervasive
 use Net::PSYC qw( :event );
 
-bind_uniform( $uni );
-register_uniform();
+use Getopt::Std;
+getopt('b');
+my $uni = $opt_b || 'psyc://localhost:4404';
 
 sub type {
     my $bla = <STDIN>;
@@ -21,16 +18,13 @@ X
     exit;
 }
 
-# shows how to do add own fds into the select-wrapper
-add(\*STDIN, 'r', \&type);
-
 sub msg {
     my ($source, $mc, $data, $vars) = @_;
 
-    if ($vars) {
+    if ($opt_v and $vars) {
 	    print <<X;
 
-variables:
+*** method $mc; variables:
 X
 	    foreach $i (keys %$vars) {
 		    print "\t$i $vars->{$i}\n";
@@ -38,87 +32,46 @@ X
     }
     if ($data) {
 	    if (length($data) < 200) {
-		    print <<X;
+		    print <<X, return if $opt_v;
 ==============================================================================
 $data
 ==============================================================================
 X
-	    } elsif (open(O, ">dump")) {
+		    if ($mc =~ /^_(message|converse)/) {
+			    if (exists $vars->{_nick}) {
+				    $_ = GREEN. "<". $vars->{_nick} ."> ". YELLOW. $data;
+			    } else {
+				    $_ = BLUE. "(". $source .") ". YELLOW. $data;
+			    }
+		    } else {
+			    $_ = MAGENTA. psyctext($data, $vars);
+		    }
+		    print RED, '{', $mc, '} ', $_, RESET, "\n";
+	    } elsif (open(O, ">dump$$")) {
 		    print O $data;
 		    close O;
 		    print "\n", length($data), <<X;
-bytes of data stored in a file called 'dump'
+*** bytes of data stored in a file called 'dump$$'
 X
 	    } else {
 		    print STDERR <<X;
-could not save data in a file called 'dump': $!
+*** could not save data in a file called 'dump$$': $!
 X
 	    }
     }
-    print "\nlistening... ";
+    print "\nlistening... " if $opt_v;
 }
 
-$|=1;
-print "\nlistening on $uni ... ";
+bind_uniform( $uni );
+register_uniform();
 
+# shows how to do add own fds into the select-wrapper
+add(\*STDIN, 'r', \&type);
+
+$|=1;
+print <<X;
+Try also option -v for verbose output.
+X
+print GREEN, "Listening on $uni ...\n", RESET;
 start_loop();
 
-
-__END__
-# old unsupported event api
-# shows how to do add own fds into the select-wrapper
-dirty_add(\*STDIN);
-
-$|=1;
-
-while(1) {
-    print "\nlistening... ";
-    foreach $d (dirty_wait) {
-	if ($d == \*STDIN) {
-		my $bla = <STDIN>;
-		print <<X;
-you typed: $bla
-bye.
-X
-		exit;
-	} else {
-		print "hearing!\n\n";
-		($err,$ip,$port,$mc,$data,%vm) = dirty_getmsg;
-
-		print <<X if $err;
-error: $err
-X
-		print <<X if $ip;
-message "$mc" from: $ip:$port
-X
-		if (%vm) {
-			print <<X;
-
-variables:
-X
-			foreach $i (keys %vm) {
-				print "\t$i $vm{$i}\n";
-			}
-		}
-		if ($data) {
-			if (length($data) < 200) {
-				print <<X;
-==============================================================================
-$data
-==============================================================================
-X
-			} elsif (open(O, ">dump")) {
-				print O $data;
-				close O;
-				print "\n", length($data), <<X;
- bytes of data stored in a file called 'dump'
-X
-			} else {
-				print STDERR <<X;
-could not save data in a file called 'dump': $!
-X
-			}
-		}
-	}
-    }
-}

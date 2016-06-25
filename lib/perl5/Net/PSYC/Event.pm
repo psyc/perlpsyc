@@ -205,10 +205,10 @@ sub deliver {
     my $t = $MMPvars->{'_context'} || $MMPvars->{'_source'};
     
     my ($mc, $data, $vars) = parse_psyc($MMPdata, $obj->{'LF'});
-=state
-    my ($mc, $data, $vars) = parse_psyc($MMPdata, $obj->{'LF'}, $cb, 
-					$iscontext, $t);
-=cut
+#=state
+#    my ($mc, $data, $vars) = parse_psyc($MMPdata, $obj->{'LF'}, $cb, 
+#					$iscontext, $t);
+#=cut
     W2('Got %s from %s', $mc, $MMPvars->{'_source'});
 
     # means.. no mc but proper vars. its a state change.
@@ -287,9 +287,9 @@ use strict;
 
 # this is beta since it does not allow anyone to handle several psyc-objects at
 # once. remember: register_uniform() allows wildcards
-=state
-use base 'Net::PSYC::State';
-=cut
+#=state
+#use base 'Net::PSYC::State';
+#=cut
 
 sub new {
     my $class = shift;
@@ -299,19 +299,19 @@ sub new {
     my $self = {};
     if (ref $o) {
 	$self->{'msg'} = sub{ $o->msg(@_) };
-=state
-	$self->{'assign'} = sub{ $o->assign(@_) } if ($o->can('assign'));
-	$self->{'augment'} = sub{ $o->augment(@_) } if ($o->can('augment'));
-	$self->{'diminish'} = sub{ $o->diminish(@_) } if ($o->can('diminish'));
-	$self->{'reset'} = sub{ $o->reset(@_) } if ($o->can('reset'));
-=cut
+#=state
+#	$self->{'assign'} = sub{ $o->assign(@_) } if ($o->can('assign'));
+#	$self->{'augment'} = sub{ $o->augment(@_) } if ($o->can('augment'));
+#	$self->{'diminish'} = sub{ $o->diminish(@_) } if ($o->can('diminish'));
+#	$self->{'reset'} = sub{ $o->reset(@_) } if ($o->can('reset'));
+#=cut
     } else {
 	$self->{'msg'} = eval "\\&$o\::msg";
-=state
-	foreach ('assign','augment','diminish','restet') {
-	    $self->{$_} = eval "\\&$o\::$_" if (eval "$o->can('$_')");
-	}
-=cut
+#=state
+#	foreach ('assign','augment','diminish','restet') {
+#	    $self->{$_} = eval "\\&$o\::$_" if (eval "$o->can('$_')");
+#	}
+#=cut
     }
     $self->{'unl'} = $unl;
     $self->{'obj'} = $o;
@@ -320,38 +320,37 @@ sub new {
 
 sub msg {
     my $self = shift;
-=cut
-    $self->SUPER::msg(@_);
-=cut
+#=cut
+#    $self->SUPER::msg(@_);
+#=cut
     &{$self->{'msg'}};
 }
-=state
-
-sub assign {
-    my $self = shift;
-    return if ($self->{'assign'} && $self->{'assign'}->(@_));
-    $self->SUPER::assign(@_);
-}
-
-sub augment {
-    my $self = shift;
-    return if ($self->{'augment'} && $self->{'augment'}->(@_));
-    $self->SUPER::augment(@_);
-}
-
-sub diminish {
-    my $self = shift;
-    return if ($self->{'diminish'} && $self->{'diminish'}->(@_));
-    $self->SUPER::diminish(@_);
-}
-
-sub reset {
-    my $self = shift;
-    return if ($self->{'reset'} && $self->{'reset'}->(@_));
-    $self->SUPER::reset(@_);
-}
-=cut
-
+#=state
+#
+#sub assign {
+#    my $self = shift;
+#    return if ($self->{'assign'} && $self->{'assign'}->(@_));
+#    $self->SUPER::assign(@_);
+#}
+#
+#sub augment {
+#    my $self = shift;
+#    return if ($self->{'augment'} && $self->{'augment'}->(@_));
+#    $self->SUPER::augment(@_);
+#}
+#
+#sub diminish {
+#    my $self = shift;
+#    return if ($self->{'diminish'} && $self->{'diminish'}->(@_));
+#    $self->SUPER::diminish(@_);
+#}
+#
+#sub reset {
+#    my $self = shift;
+#    return if ($self->{'reset'} && $self->{'reset'}->(@_));
+#    $self->SUPER::reset(@_);
+#}
+#=cut
 
 1;
 
@@ -455,7 +454,7 @@ Arne GE<ouml>deke <el@goodadvice.pages.de>
 
 =head1 COPYRIGHT
 
-Copyright (c) 1998-2005 Arne GE<ouml>deke and Carlo v. Loesch.
+Copyright (c) 1998-2016 Arne GE<ouml>deke and Carlo v. Loesch.
 All rights reserved.
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

@@ -527,7 +527,7 @@ Whenever the topic in this chatroom is changed this method is called with the ne
  
 =head1 SEE ALSO
 
-L<Net::PSYC>, L<Net::PSYC::Event>, L<http://www.psyc.eu/>, L<http://perlpsyc.pages.de> for a bunch of scripts and a client (psycion) using L<Net::PSYC> 
+L<Net::PSYC>, L<Net::PSYC::Event>, L<http://www.psyc.eu/>, L<http://perl.psyc.eu> for a bunch of scripts and a client (psycion) using L<Net::PSYC> 
 
 =head1 AUTHORS
 
@@ -535,7 +535,7 @@ Arne GE<ouml>deke <el@goodadvice.pages.de>
 
 =head1 COPYRIGHT
 
-Copyright (c) 2004-2005 Arne GE<ouml>deke. All rights reserved.
+Copyright (c) 2004-2016 Arne GE<ouml>deke. All rights reserved.
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
 
