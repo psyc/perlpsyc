@@ -36,8 +36,8 @@ getopt('bcilmpstHP');
 
 my $bind = $opt_b || "psyc://$ENV{USER}\@127.0.0.1:4051/\$remotor";
 my $ini = $opt_c || "$ENV{HOME}/.tor/remotor.ini";
-my $torlog = $opt_s || "/var/run/tor/log.sock";
 
+my $torlog = undef;
 my $torsock = undef;
 my $logsock = undef;
 my $target;
@@ -198,13 +198,21 @@ sub idlebilly {
 	$host = $1 if $ENV{SOCKS_PROXY} =~ m!^socks://(\S+):\d+$!;
 	$host = $config{"$nick:host"} if $config{"$nick:host"};
 	$port = $config{"$nick:port"} if $config{"$nick:port"};
-	my $auth = $config{"$nick:auth"};
-	$auth = $opt_p if $opt_p;
 	$host = $opt_H if $opt_H;
 	$port = $opt_P if $opt_P;
 	$target = $opt_t || $config{"$nick:notify"}
 			 || $config{"default:notify"};
 
+	my $auth = $config{"$nick:auth"};
+	$auth = $opt_p if $opt_p;
+	if (not $auth and open A, "$ENV{HOME}/.tor/control_auth_cookie") {
+		local $/ = undef;
+		$auth = <A>;
+		close A;
+	}
+
+	$opt_s = $config{"$nick:socket"} if !$opt_s and $config{"$nick:socket"};
+	$torlog = $opt_s || "/var/run/tor/log.sock";
 	if ($opt_s and not -p $torlog) {
 		undef $!;
 		die "Could not mkfifo $torlog: $!" unless mkfifo $torlog, 0600;
@@ -345,6 +353,7 @@ Here's an example for the ini syntax in use:
 	port=9051
 	auth=somesecretrandomstring
 	notify=psyc://127.0.0.1/@remotor
+	socket=/var/run/tor/log.sock
 
 The configuration file is a safer place to store authentication
 strings than the command line which can be read by other users
