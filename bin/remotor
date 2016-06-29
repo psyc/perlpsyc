@@ -55,7 +55,7 @@ sub say {
 sub reallyquit { exit; }
 sub quit {
 	tellpsyc(chat? "_request_leave_remotor": "_notice_stopping_remotor", "[_command] stopping on [_nick].");
-	add(1, 't', \&reallyquit);
+	add(2, 't', \&reallyquit);
 }
 
 sub tellpsyc {

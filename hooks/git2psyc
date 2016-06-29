@@ -45,7 +45,7 @@ our ($project, $target, $host, $port, $webview, $psycver, $debug);
 our $pwd = cwd;
 # extract the project name from the path if nothing provided
 # this works for either project/ or project.git/ directories
-$project=$1 if $pwd =~ m#/([^/]+)/?\.git\b#;
+$project = ( $pwd =~ m#/([^/]+)/?\.git\b# ) ? $1 : '-';
 
 do $config;
 
