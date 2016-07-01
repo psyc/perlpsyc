@@ -44,6 +44,7 @@ my $torsock = undef;
 my $logpipe = undef;
 my $quitting = 0;
 my $target;
+my $nick;
 my $log = undef;
 my %config;
 my %pv;
@@ -60,19 +61,23 @@ sub quit {
 	# error condition can be triggered several times
 	return if $quitting++;
 	tellpsyc(chat? "_request_leave_remotor": "_notice_stopping_remotor", "[_command] stopping on [_nick].");
+	tellpsyc("_request_circuit_shutdown", "Seeyasoon.");
 	add(2, 't', \&reallyquit);
 }
 
 sub tellpsyc {
-	my ($mc, $text) = @_;
+	my ($mc, $text, $var, $value) = @_;
+	# my %v = $value? { $var => $value } : %pv;
+	# $pv{_nick} = $nick;
 	say "tellpsyc: ", $text if debug & 4;
-	sendmsg($target, $mc, $text, \%pv) if $target;
+	return unless $target;
+	sendmsg($target, $mc, $text, $value? { $var => $value } : \%pv);
 }
 
 sub terror {
 	my $msg = "Error on the Tor control socket. $_";
 	say $msg;
-	tellpsyc('_warning_remotor', $msg);
+	tellpsyc('_notice_warning_remotor', $msg);
 	return &quit;
 }
 
@@ -98,7 +103,7 @@ sub torparse {
 	s/NEED_UPTIME\b/u/;
 	s/\$\w+~(\w+)\b/ MAGENTA. $1 .RESET /ge;
 	print YELLOW, $_, RESET, "\n";
-	tellpsyc('_warning_remotor', $_) if
+	tellpsyc('_notice_warning_remotor', $_) if
 	    /(FAIL|ERROR|DESTROY|SIGNAL|DANGER|LIVENESS|HIBERNATION|TRANSPORT|GUARD|BAD|HIJACKED|USELESS|UNREACHABLE|CLOCK|BUG|TOO_MANY)\b/;
 	print $log "> $_\n" if $log;
 	print $torsock "\n";
@@ -110,11 +115,19 @@ sub torlogparse {
 	if ( / \[debug\] / ) {
 		return unless / \{APP\} connection_ap_handshake_rewrite... Client asked for (\S+)$/;
 		print CYAN, "Request for $1", RESET, "\n";
-		tellpsyc('_notice_remotor_monitor', $1) if $opt_f;
+		tellpsyc('_notice_monitor_remotor',
+			 'Request for [_address_web]',
+			 '_address_web', $1) if $opt_f;
 		return;
 	} elsif ( / \[info\] / ) {
 		say "torlogparse: $_" if debug & 8;
 		return;
+	} elsif ( / \[(\w+)\] (.+)/ ) {
+		# we don't send *real* PSYC warnings or errors because that would confuse
+		# PSYC signaling and gets dumped by the place to avoid potential loops.
+		my $mc = $1 eq 'err'? '_notice_error': $1 eq 'warn'? '_notice_warning': '_notice';
+		tellpsyc($mc . '_remotor', $2);
+		# fall thru
 	}
 	say $_;
 }
@@ -169,6 +182,8 @@ sub msg {
 		} else {
 			$_ = "(". $source .") ". YELLOW . $data;
 		}
+	} elsif (chat and $mc =~ /^_notice.*_remotor/) {
+		return;	# do not display our own notices
 	} else {
 		$_ = psyctext($data, $vars);
 	}
@@ -200,12 +215,15 @@ sub idlebilly {
 ## MAIN ###
 
 	say "remoTor ", version, " - a console-based Tor controller and log analyzer with PSYC notification";
+	$nick = shift || 'default';
+	$pv{_nick} = $nick;
+	$pv{_command} = $0;
 	bind_uniform( $bind );
 	register_uniform();
+	say "Listening for PSYC controls on $bind";
 
 	$|=1;
 	&iniparse($ini);
-	my $nick = shift || 'default';
 	$host = $1 if $ENV{http_proxy} =~ m!^http://(\S+):\d+$!;
 	$host = $1 if $ENV{HTTP_PROXY} =~ m!^http://(\S+):\d+$!;
 	$host = $1 if $ENV{SOCKS_PROXY} =~ m!^socks://(\S+):\d+$!;
@@ -293,10 +311,7 @@ X
 
 	add(\*STDIN, 'r', \&keyparse);
 	add($opt_i, 'i', \&idlebilly) if $opt_i;
-	$pv{_nick} = $nick;
-	$pv{_command} = $0;
 	tellpsyc(chat? "_request_enter_remotor": "_notice_starting_remotor", "[_command] starting on [_nick].");
-	say "Listening for PSYC controls on $bind";
 	start_loop();
 	exit;
 
@@ -403,8 +418,8 @@ need to modify the logging parameters as follows:
 
 	SafeLogging relay
 	LogMessageDomains 1
-	Log [app]debug-info file /var/run/tor/log.fifo
-	# Log        notice file /var/run/tor/log.fifo
+	Log [app]debug-debug file /var/run/tor/log.fifo
+	Log           notice file /var/run/tor/log.fifo
 
 You can use a different path and pass it using -s. remotor will 
 attempt to mkfifo the necessary pipe if it is missing, so run
