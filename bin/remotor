@@ -40,6 +40,7 @@ my $ini = $opt_c || "$ENV{HOME}/.tor/remotor.ini";
 my $torlog = undef;
 my $torsock = undef;
 my $logsock = undef;
+my $quitting = 0;
 my $target;
 my $log = undef;
 my %config;
@@ -54,6 +55,8 @@ sub say {
 
 sub reallyquit { exit; }
 sub quit {
+	# error condition can be triggered several times
+	return if $quitting++;
 	tellpsyc(chat? "_request_leave_remotor": "_notice_stopping_remotor", "[_command] stopping on [_nick].");
 	add(2, 't', \&reallyquit);
 }
@@ -118,6 +121,7 @@ sub keyparse {
 	$_ = <STDIN>;
 	say "keyparse: ", $_ if debug & 2;
 	return &quit if /^\s*q\s*$/i;
+	return system('/usr/bin/clear') if /^\.$/;
 		# should be _converse
 	return tellpsyc("_message_public", $1) if m!^\s*/\s+(.*\S.*)$!;
 	return unless $torsock;
@@ -136,6 +140,7 @@ sub keyparse {
 	    't'		to toggle delivery of circuit events
 	    'g'		for the list of entry guards
 	    '/ <msg>'	to send a message to the PSYC channel
+	    '.'		to clear the screen
 X
 		return;
 	}
