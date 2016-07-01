@@ -17,8 +17,9 @@ sub version() { "1.2" }
 #  1: debug Tor control
 #  2: debug STDIN
 #  4: debug PSYC
-#  8: debug Tor log socket
+#  8: debug Tor log pipe
 # 16: debug config parsing
+# 32: debug Tor control socket
 # 63: full debugging
 sub debug() { 0 }
 
@@ -26,20 +27,21 @@ sub debug() { 0 }
 # thus receive ongoing chat directly rather than just manually?
 sub chat() { 1 }
 
-use IO::Socket::INET;
+use IO::Socket;
 use POSIX qw( mkfifo );			# optional, for -s option
 use Pod::Usage qw( pod2usage );
 use Term::ANSIColor qw( :constants );	# optional but pervasive
 use Net::PSYC qw( :event );		# needed for event loop
 use Getopt::Std qw( getopt );
-getopt('bcilmpstHP');
+getopt('bcilmptHPS');
 
 my $bind = $opt_b || "psyc://$ENV{USER}\@127.0.0.1:4051/\$remotor";
 my $ini = $opt_c || "$ENV{HOME}/.tor/remotor.ini";
 
+my $torctrl = undef;
 my $torlog = undef;
 my $torsock = undef;
-my $logsock = undef;
+my $logpipe = undef;
 my $quitting = 0;
 my $target;
 my $log = undef;
@@ -103,7 +105,7 @@ sub torparse {
 }
 
 sub torlogparse {
-	$_ = <$logsock>;
+	$_ = <$logpipe>;
 	chop; chomp;
 	if ( / \[debug\] / ) {
 		return unless / \{APP\} connection_ap_handshake_rewrite... Client asked for (\S+)$/;
@@ -198,6 +200,9 @@ sub idlebilly {
 ## MAIN ###
 
 	say "remoTor ", version, " - a console-based Tor controller and log analyzer with PSYC notification";
+	bind_uniform( $bind );
+	register_uniform();
+
 	$|=1;
 	&iniparse($ini);
 	my $nick = shift || 'default';
@@ -217,20 +222,24 @@ sub idlebilly {
 		local $/ = undef;
 		$auth = <A>;
 		close A;
+		say "Picked up a cookie of length ", length($auth) if debug;
 	}
 
-	$opt_s = $config{"$nick:socket"} if !$opt_s and $config{"$nick:socket"};
-	$torlog = $opt_s || "/var/run/tor/log.sock";
-	if ($opt_s and not -p $torlog) {
+	$opt_m = $config{"$nick:monitor"} if !$opt_m and $config{"$nick:monitor"};
+	$torlog = $opt_m || "/var/run/tor/log.fifo";
+	if ($opt_m and not -p $torlog) {
 		undef $!;
 		die "Could not mkfifo $torlog: $!" unless mkfifo $torlog, 0600;
-		system('chgrp', 'tor', $torlog) and chmod 0660, $torlog;
+		system('chgrp', 'tor', $torlog);
+		chmod 0660, $torlog;
 	} elsif (not -p $torlog) {
+		say "No fifo pipe found at $torlog" if debug & 8;
 		undef $torlog;
 	}
 	if ($torlog) {
-		open($logsock, $torlog) or die "Cannot read from $torlog: $!";
-		add($logsock, 'r', \&torlogparse);
+		say "Monitoring $torlog for Tor events";
+		open($logpipe, $torlog) or die "Cannot read from $torlog: $!";
+		add($logpipe, 'r', \&torlogparse);
 	}
 
 	if ($opt_h or !$auth && !$torlog) {
@@ -242,28 +251,41 @@ X
 		pod2usage;
 	}
 
-	if ($auth) {
+	$torctrl = $opt_S || "/var/run/tor/control.sock";
+	if ($opt_S and not -p $torctrl) {
+		die "There is no Tor control socket at $torctrl";
+	} elsif (not -S $torctrl) {
+		say "No unix socket found at $torctrl" if debug & 32;
+		undef $torctrl;
+	}
+	if ($torctrl and $opt_S) {  # FIXME.. remove and $opt_S
+		die "Could not connect to $torctrl: $!"
+		  unless $torsock = IO::Socket::UNIX->new(
+		    Type => SOCK_STREAM(),
+		    Peer => $torctrl
+		);
+		say "Connected to control socket at $torctrl";
+	} elsif ($auth) {
 		say "Trying to connect Tor router at $host:$port";
 		$torsock = IO::Socket::INET->new( Proto => 'tcp',
 						  PeerAddr => $host,
 						  PeerPort => $port);
 		die "Could not connect to $host:$port: $!" unless $torsock;
 		say "Connected to ControlPort at $host:$port";
-
-		bind_uniform( $bind );
-		register_uniform();
-		say "Listening for PSYC controls on $bind";
-		print GREEN, "Taking Tor commands from STDIN. Type '?' for a list of shortcuts.\n", RESET;
+	}
+	if ($torsock) {
+		add($torsock, 'r', \&torparse);
+		add($torsock, 'e', \&terror);
+		print GREEN, "Taking Tor commands from STDIN. Type '?' for a list of shortcuts\n", RESET;
 		print GREEN, "See also https://gitweb.torproject.org/torspec.git/plain/control-spec.txt\n", RESET;
-
+		$auth = unpack("H*", $auth); # hex encoding
+		say "Authenticating using '$auth'" if debug & 1;
 		print $torsock <<X;
-AUTHENTICATE "$auth"
+AUTHENTICATE $auth
 USEFEATURE EXTENDED_EVENTS VERBOSE_NAMES
 GETINFO stream-status
 X
 		&circtoggle;
-		add($torsock, 'r', \&torparse);
-		add($torsock, 'e', \&terror);
 	}
 	die "Cannot write to $opt_l: $!"
 	    if $opt_l and not open($log, '>>', $opt_l);
@@ -274,6 +296,7 @@ X
 	$pv{_nick} = $nick;
 	$pv{_command} = $0;
 	tellpsyc(chat? "_request_enter_remotor": "_notice_starting_remotor", "[_command] starting on [_nick].");
+	say "Listening for PSYC controls on $bind";
 	start_loop();
 	exit;
 
@@ -293,9 +316,10 @@ remoTor - a console-based Tor controller and log analyzer with PSYC notification
 	 -p <password>	Authentication string needed to take control
 	 -H <host>	Tor router host
 	 -P <port>	Tor router control port
+	 -S <path>	connect to the Tor control unix Socket instead
 	 -l <logfile>	Keep a transaction log
 	 -i <seconds>	Request a stream status if idle for a while
-	 -s <socket>	Scan a Tor logging socket for interesting events
+	 -m <path>	Monitor a logging pipe for interesting Tor events
 	 -f		Forward circuit creation requests to PSYC
 	 -c <config>	Alternate configuration file to use
 	 -t <uniform>	PSYC address to send notifications to
@@ -361,7 +385,7 @@ Here's an example for the ini syntax in use:
 	port=9051
 	auth=somesecretrandomstring
 	notify=psyc://127.0.0.1/@remotor
-	socket=/var/run/tor/log.sock
+	monitor=/var/run/tor/log.fifo
 
 The configuration file is a safer place to store authentication
 strings than the command line which can be read by other users
@@ -379,7 +403,8 @@ need to modify the logging parameters as follows:
 
 	SafeLogging relay
 	LogMessageDomains 1
-	Log [app]debug file /var/run/tor/log.sock
+	Log [app]debug-info file /var/run/tor/log.fifo
+	# Log        notice file /var/run/tor/log.fifo
 
 You can use a different path and pass it using -s. remotor will 
 attempt to mkfifo the necessary pipe if it is missing, so run
