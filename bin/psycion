@@ -340,6 +340,9 @@ Examples:
     alias j	join
     alias r	reply
  
+=head1 BUGS
+
+psycion is known to trigger a crash in Perl when used in combination with torsocks. A fix can be expected in Perl versions more recent than July 2016. See https://rt.perl.org/Public/Bug/Display.html?id=128740#txn-1412651 for details.
 
 =head1 AUTHOR
 
