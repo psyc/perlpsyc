@@ -9,6 +9,8 @@
 require 5.000;
 use Net::PSYC;
 
+my $noargs = $#ARGV == -1;
+
 use Getopt::Std;
 getopt('tbm');
 
@@ -17,6 +19,15 @@ $target = $opt_t || 'psyc://127.0.0.1:2244/';	# talk to local "listen" script
 $method = $opt_m || '_bulk';		# couldnt think of anything better
 
 bind_uniform( $binder );
+
+print STDERR <<X if $noargs and -t STDIN;
+*** $0 process bound to -b $binder address.
+*** Message will be delivered by -m $method to -t $target.
+*** Insert a multiline message now.
+*** Message will be sent when input is terminated by CTRL-D.
+*** Available options are -b, -t, -m and -q to quieten this information.
+
+X
 
 my $d = '';
 # i know there are better ways to do this..
