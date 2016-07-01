@@ -1,4 +1,4 @@
-#!/usr/bin/perl -I/usr/depot/lib/perl5 -w
+#!/usr/bin/perl -I/usr/depot/lib/perl5
 
 # notifies a PSYC target about changes in a filesystem.	-lynX 2005
 # currently using famd as Inotify.pm isn't really ready yet.

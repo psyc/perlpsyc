@@ -1,4 +1,4 @@
-#!/usr/bin/perl -I/usr/depot/lib/perl5 -w
+#!/usr/bin/perl -I/usr/depot/lib/perl5
 #
 # _request_link is the message that connects a
 # UNL to a UNI - in simple words - that connects

@@ -1,4 +1,4 @@
-#!/usr/bin/perl -I/usr/depot/lib/perl5 -w
+#!/usr/bin/perl -I/usr/depot/lib/perl5
 #
 # requires a psyc server to do anything useful -
 # will tell a UNI on that server that this unix
