@@ -25,7 +25,7 @@ getopt('tbm');
 
 $binder = $opt_b || 'psyc://:0d/';	# get yourself any udp port on local ip
 					# talk to local psycmp3 (default)
-$target = $opt_t || 'psyc://127.1:1144d/';
+$target = $opt_t || 'psyc://127.0.0.1:1144/';
 $method = $opt_m || '_request_execute';	# commands are kind requests
 					# for execution in PSYC
 
@@ -33,8 +33,8 @@ bind_uniform( $binder );
 print "sendmsg '$target', '$method',\n" if $opt_v;
 
 if ($opt_p || $0 =~ /play/i) {
-	require 'pwd.pl';
-	&initpwd;
+        use Cwd qw(chdir);  # maintains PWD in ENV
+        print STDERR $ENV{'PWD'}, " = PWD\n" if DEBUG & 1;
 	$opt_p = 1;
 }
 
@@ -53,7 +53,7 @@ sub go {
 	$_ = shift;
 	if ($opt_p) {
 		$_ = "$ENV{'PWD'}/$_" unless m§^/§ || m§^\w:/§;
-		$_ = "open $_";
+		$_ = $opt_j ? "scan $_" : "open $_";
 	}
 	print "\t'$_'\n" if $opt_v;
 	return if $opt_n;

@@ -33,8 +33,8 @@ bind_uniform( $binder );
 print "sendmsg '$target', '$method',\n" if $opt_v;
 
 if ($opt_p || $0 =~ /play/i) {
-	require 'pwd.pl';
-	&initpwd;
+        use Cwd qw(chdir);  # maintains PWD in ENV
+        print STDERR $ENV{'PWD'}, " = PWD\n" if DEBUG & 1;
 	$opt_p = 1;
 }
 
@@ -58,6 +58,6 @@ sub go {
 	print "\t'$_'\n" if $opt_v;
 	return if $opt_n;
 	$rc = sendmsg ($target, $method, $_); # , { _kilroy => 'woz ere' } );
-	die "send: $rc" if $rc;
+	die "sendmsg returns $rc" if $rc;
 }
 
