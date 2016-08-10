@@ -31,19 +31,14 @@ X
 # since perl has no native preprocessor, this code is
 # managed by the 'jaggler' preprocessor.
 #
-# to activate the new event model for Net::PSYC use
-#	jaggler -x -c# -j§ -DOTE psycmp3
-# to activate the old event model for Net::PSYC use
-#	jaggler -x -c# -j§ -DOT psycmp3
-# psycmp3 in 'distribution' default mode
-#	jaggler -x -c# -j§ -DE psycmp3
-# lynX's config
-#	jaggler -x -c# -j§ -DEO psycmp3
-#
 # list of available jaggler flags:
-#  'E' := "el" - use elridion's new event model
 #  'T' := "time" - activates output of access and modification time
 #  'O' := "org" - enable shift-key functions to reorganize collection
+#
+# psycmp3 in 'distribution' default mode
+#	jaggler -x -c# -j§ psycmp3
+# psycmp3 supporting 'T' and 'O' extras:
+#	jaggler -x -c# -j§ -DOT psycmp3
 
 # things still in "makenoise":	cdrom-file-caching, des-decoding,
 #				marks, volumes, support for non-mp3s.
@@ -149,8 +144,7 @@ $hateindex="/L/arclocator/lyndices/TRASH-$ENV{HOST}.ix";
 	use IPC::Open2;
 	#use MPEG::MP3Info;	# no longer necessary
 #§	use Date::Format;	# just for time2str	#? T
-#§	use Net::PSYC qw( :anachronism );		#? !E
-	use Net::PSYC qw( :event );			#? E
+	use Net::PSYC qw( :event );
 	# special hack for timeout detection
 
 $scan = 0;
@@ -276,14 +270,13 @@ X
 
 	print STDERR "binding to $opt_b ...\n" if DEBUG & 16 && $opt_b;
 	bind_uniform( $opt_b || $UNI );
-	register_uniform();				#? E
+	register_uniform();
 	$rc = sendmsg ($opt_M, '_notice_summary_play_music',
 "[_nick_application]: [_nick] is going to listen to [_amount_tracks] tracks.",
 	      { _nick => $nick, _nick_application => 'psycmp3',
 		_amount_tracks => $NS } ) if $opt_M;
 	print STDERR "sent greeting to $opt_M ...\n" if DEBUG & 16 && $opt_M;
-	add( \*STDIN, 'r', \&stdread );			#? E
-#§	dirty_add( \*STDIN );				#? !E
+	add( \*STDIN, 'r', \&stdread );
 	&rxstart;
 
 	# use Cwd; # also used by &save()
@@ -313,142 +306,99 @@ X
 	&next(0);
 #	&vol(100);
 	$|=1;
- #{ E
+
 	# Net::PSYC::Event doesn't support idle events yet.. TODO
 	add(3, 'i', \&timeout, 1);
 	# higher frequency necessary to detect timeouts this way..
 	# then again, if it's too high timer is sometimes faster
 	# than rxaudio and produces an erroneous kick..
-# this was before el added idle events.. thx el
-#	add(3, 'i', \&timeout);
 	start_loop();
 }
 
+
+### SUBS & SANDWICHES ###
+
 sub timeout {
-#		print STDERR "\r$dirtyflag " if DEBUG & 1024;
-#		# since we don't have idle events, we have to count timer events
-#		# less elegant, but no big difference cpu-wise after all
-# this was before el added idle events.. thx el
-#		return 3 unless $dirtyflag++;
- #:
-#§	while(1) {
-#§	    @d = dirty_wait(3.33);
-#§	    unless (@d) {
- #}
-		if (!$paused) {
-		    # HACK for rxaudio which sometimes gets enchanted
-		    #y $trick = rand(2)>1 ? 'pause' : 'seek 1 1';
-		    #y $trick = ('pause', 'seek 1 1', 'play')[rand(3)];
-		    #y $trick = 'seek 1 1';
+    if (!$paused) {
+	# HACK for rxaudio which sometimes gets enchanted
+	#y $trick = rand(2)>1 ? 'pause' : 'seek 1 1';
+	#y $trick = ('pause', 'seek 1 1', 'play')[rand(3)];
+	#y $trick = 'seek 1 1';
 #		    print " (kicking rxaudio with '$trick')\n" if DEBUG & 32;
 #		    &p( $trick );
-		    print "\n\t\t(kick) " if DEBUG & 32;
-		    &p('seek 1 1');
-		}
- #{ !E
-#§	    } else {
-#§		foreach $d (@d) {
-#§		    if ($d == \*R) {
-#§			$_ = scalar <R>;
- #:
-		return 3;
+	print "\n\t\t(kick) " if DEBUG & 32;
+	&p('seek 1 1');
+    }
+    return 3;
 }
 
 sub rxread {
-			$_ = <R>;
- #}
-			print STDERR $_ if DEBUG & 256;
-			# example: MSG notify position [offset=20, range=400]
-			if ( /^MSG notify position / ) {
-			    /\boffset=(\d+), range=(\d+)\b/;
-			    # HACK! HACK!
-			    # send something that will flush the EOF to us
-			    print W "get_player_mode\n" if 5+$1 > $2;
-			} else {
-			    $_ = &rxparse( $_ );
-			    if ( /EOF/ ) {
-				    # &progress('');
-				    if ($deleteLater eq $CurrentFile) {
-					print unlink ($deleteLater) ?
-						"\r***[\n" : "\r - [\n";
-					$deleteLater = undef;
-				    } elsif ($opt_d && ($Volatile ||
-					$CurrentFile =~ /\b$VOLATILE\b/oi)) {
-					    print unlink ($CurrentFile) ?
-						    "\r***[\n" : "\r - [\n";
+    $_ = <R>;
+    print STDERR $_ if DEBUG & 256;
+    # example: MSG notify position [offset=20, range=400]
+    if ( /^MSG notify position / ) {
+	/\boffset=(\d+), range=(\d+)\b/;
+	# HACK! HACK!
+	# send something that will flush the EOF to us
+	print W "get_player_mode\n" if 5+$1 > $2;
+    } else {
+	$_ = &rxparse( $_ );
+	if ( /EOF/ ) {
+		# &progress('');
+		if ($deleteLater eq $CurrentFile) {
+		    print unlink ($deleteLater) ?
+			    "\r***[\n" : "\r - [\n";
+		    $deleteLater = undef;
+		} elsif ($opt_d && ($Volatile ||
+		    $CurrentFile =~ /\b$VOLATILE\b/oi)) {
+			print unlink ($CurrentFile) ?
+				"\r***[\n" : "\r - [\n";
 # [could not delete $CurrentFile]
-				    } elsif ($opt_D && !$Keep &&
-					$CurrentFile !~ /\b$KEEP\b/oi) {
-					    print unlink ($CurrentFile) ?
-						    "\r***[\n" : "\r - [\n";
-				    } else {
-					    my $m = $date[$order[$CS]];
-					    # touch the access time of the file
+		} elsif ($opt_D && !$Keep &&
+		    $CurrentFile !~ /\b$KEEP\b/oi) {
+			print unlink ($CurrentFile) ?
+				"\r***[\n" : "\r - [\n";
+		} else {
+			my $m = $date[$order[$CS]];
+			# touch the access time of the file
 #	print "\rto be accessed: ", isotime(time),
 #		"\tto be changed: ", isotime($m), "\n";
-					    utime time, $m, $CurrentFile;
- #{ T
+			utime time, $m, $CurrentFile;
+#{ T
 #§#	($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
 #§#	   $atime,$mtime,$ctime,$blksize,$blocks) = lstat($CurrentFile);
 #§#	print "\rset accessed: ", isotime($atime),
 #§#		"\tset changed: ", isotime($mtime), "\n";
- #}
-					    print "\r   [\n" unless $opt_q;
-				    }
-				    &rxstop if $opt_I;
-				    &next(0);
-			    }
-			}
-}						#? E
-#§		    } elsif ($d == \*STDIN) {		#? !E
-sub stdread {					#? E
-			    $_ = scalar <STDIN>;
-			    &parse( $_ );
-	}						#? E
- #{ !E
-#§		    } else {
-#§			    ($err,$a,$p,$mc,$data,%vm) = &dirty_getmsg;
- #:
-# according to new event system
+#}
+			print "\r   [\n" unless $opt_q;
+		}
+		&rxstop if $opt_I;
+		&next(0);
+	}
+    }
+}
+
+sub stdread {
+    $_ = scalar <STDIN>;
+    &parse( $_ );
+}
+
 sub msg {
-			    my ($source, $mc, $data, $vars) = @_;
- #}
-# --PSYC--> $mc($data) from $vm{':_source'} ($a:$p) <--
- #{ E
-			    return if $mc =~ /_circuit/;
-			    unless ($opt_q) {
-				    my $tx = psyctext($data, $vars);
-				    print <<X;
+    my ($source, $mc, $data, $vars) = @_;
+    return if $mc =~ /_circuit/;
+    unless ($opt_q) {
+	    my $tx = psyctext($data, $vars);
+	    print <<X;
 
 » $source ($mc) »»» $tx «««
 
 X
-			    # disable when using -M
-			    return if $opt_M;
- #:
-#§			    next if $mc =~ /^_circuit/;
-#§			    print <<X unless $opt_q;
-#§$err
-#§» PSYC($a:$p) »»» $data «««
-#§
-#§X
-#§			    # only allow localhost when using -M
-#§			    #next if $opt_M and $a and $a ne '127.0.0.1';
-#§			    next if $opt_M;
- #}
-			    &parse($data) if $mc =~
-				/^(_request_execute|_command|_message)/;
- #{ !E
-#§		    }
-#§		}
-#§	    }
- #}
-	}
-	# should never get here
-	# while(<stdin>) { &parse($_); }
-	# &fade(0);
+    }
+    # disable when using -M... hmm, why?
+    return if $opt_M;
+    &parse($data) if $mc =~
+	/^(_request_execute|_command|_message)/;
 }
-exit;
 
  #{ T
 #§sub isotime {
@@ -1053,13 +1003,11 @@ sub rxstart {
 rxaudio server running as $pid
 X
 	&expect('ready');
-	add( \*R, 'r', \&rxread );		#? E
-#§	dirty_add( \*R );			#? !E
+	add( \*R, 'r', \&rxread );
 	$output_open = 1;
 }
 sub rxstop {
-	remove( \*R );				#? E
-#§	dirty_remove( \*R );			#? !E
+	remove( \*R );
 	p('exit');
 	close R;
 	undef $pid;
