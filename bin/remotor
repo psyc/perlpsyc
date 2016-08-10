@@ -265,8 +265,12 @@ sub idlebilly {
 	}
 	if ($torlog) {
 		say "Monitoring $torlog for Tor events";
-		open($logpipe, $torlog) or die "Cannot read from $torlog: $!";
-		add($logpipe, 'r', \&torlogparse);
+		if (open($logpipe, $torlog)) {
+			add($logpipe, 'r', \&torlogparse);
+		} else {
+			warn "Cannot read from $torlog: $!";
+			undef $torlog;
+		}
 	}
 
 	if ($opt_h or !$auth && !$torlog) {
