@@ -82,6 +82,7 @@ sub tellpsyc {
 }
 
 sub terror {
+	return if $quitting;
 	my $msg = "Error on the Tor control socket. $_";
 	say $msg;
 	tellpsyc('_notice_warning_remotor', $msg);

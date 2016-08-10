@@ -71,7 +71,7 @@ sub add {
 	} elsif ($type eq 'w') {
 	    $flags |= EV_WRITE;
 	} elsif ($type eq 'e') {
-	    W0('There is no exception handling for file-descriptors in libevent.');
+	    W0('There is no exception handling for file descriptors in libevent.');
 	    return 0;
 	}
 	$event = event_new($fd, $flags, $sub);

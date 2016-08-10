@@ -41,7 +41,7 @@ sub register_uniform {
 	$unl2obj{$unl} = $obj;
 	$obj2unl{$obj} = $unl;
 	unless ($obj->can('msg')) {
-	    W0('%s does not have a msg()-method! Cannot deliver packet!',
+	    W0('%s does not have a msg() method! Cannot deliver packet!',
 		ref $obj);
 	    return $obj;
 	}
@@ -78,7 +78,7 @@ sub find_context {
 sub register_context {
     my ($context, $obj) = @_;
     unless (ref $obj) {
-	W0('register_context needs an object to register for.');
+	W0('register_context() needs an object to register for.');
 	return 0;
     }
     $context2obj{$context} = $obj;
@@ -148,7 +148,7 @@ sub deliver {
     
     unless ( $repeat || $obj->read() ) { # connection lost
 	Net::PSYC::shutdown($obj);
-	W0('Lost connection to %s:%s', $obj->{'R_IP'}, $obj->{'R_PORT'});
+	W0('Lost PSYC connection to %s:%s', $obj->{'R_IP'}, $obj->{'R_PORT'});
 	return 1;
     }
 
@@ -160,8 +160,8 @@ sub deliver {
     
     if ($MMPvars == -1) { # shutdown
 	Net::PSYC::shutdown($obj);
-	W0('Someone is making trouble: %s', $MMPdata);
-	W0('Closing connection to %s:%s.', $obj->{'R_IP'}, $obj->{'R_PORT'});
+	W0("Someone is making trouble on PSYC's routing layer: %s", $MMPdata);
+	W0('Closing PSYC connection to %s:%s.', $obj->{'R_IP'}, $obj->{'R_PORT'});
 	return 1;
     }
 
@@ -171,7 +171,7 @@ sub deliver {
 	unless (ref $t) {
 	    Net::PSYC::shutdown($obj);
 	    W0('Could not parse that _target: %s.', $MMPvars->{'_target'});
-	    W0('Closing connection to %s:%s.', $obj->{'R_IP'}, 
+	    W0('Closing PSYC connection to %s:%s.', $obj->{'R_IP'}, 
 		$obj->{'R_PORT'});
 	    return 1;
 	}
@@ -196,7 +196,7 @@ sub deliver {
     }
     
     unless ($cb) {
-	W0('Found no recipient for %s. Dropping message.', 
+	W0('Found no recipient for %s. Dropping PSYC message.', 
 	    $MMPvars->{'_target'});
 	return -1;
     }
@@ -220,7 +220,7 @@ sub deliver {
     if (!$mc && $mc == 0) {
 	W0('Broken PSYC packet from %s. Parser says: %s', $obj->{'peeraddr'}, 
 	    $data);
-	W0('Closing connection to %s:%s.', $obj->{'R_IP'}, $obj->{'R_PORT'});
+	W0('Closing PSYC connection to %s:%s.', $obj->{'R_IP'}, $obj->{'R_PORT'});
 	Net::PSYC::shutdown($obj);
 	return 1;
     }

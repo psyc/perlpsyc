@@ -81,7 +81,7 @@ sub write () {
     $m .= make_mmp($packet->[0], $packet->[1]);
     
     unless ($host) {
-	W0('This target (%s) needs a host. Dropping message.', $target);
+	W0('This PSYC target (%s) needs a host. Dropping message.', $target);
 	return 1;
     }
 
@@ -90,7 +90,7 @@ sub write () {
     
     if (!defined($self->{'SOCKET'}->send($m, 0, $tin))) {
 	if (++$packet->[3] >= 3) {
-	    W0('Delivery of a udp packet to %s failed for the third time. Dropping message.', $target);
+	    W0('Delivery of a PSYC UDP packet to %s failed for the third time. Dropping message.', $target);
 	    return 1;
 	}
         unshift(@{${$self->{'O_BUFFER'}}[$self->{'O_COUNT'}]}, $packet);

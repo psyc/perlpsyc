@@ -58,7 +58,7 @@ sub revoke {
     my $type = shift;
     W2('revoked %s', $name);
     if ($type eq 't' || $type eq 'i') {
-	W0('You cannot revoke idle or timer events.');
+	W0('You cannot revoke idle or timer PSYC::Events.');
 	return;
     }
 
@@ -67,7 +67,7 @@ sub revoke {
 	return 1;
     }
 
-    W0('Unknown event type: %s.', $type);
+    W0('Unknown PSYC::Event type: %s.', $type);
 }
 
 #   remove ( \*fd, flag )
@@ -83,7 +83,7 @@ sub remove {
 	return;
     }
     unless ($flag =~ /^[rewt]$/) {
-	W0('Unknown event type: %s.', $flag);	
+	W0('Unknown PSYC::Event type: %s.', $flag);	
 	return 0;
     }
     return unless (exists $s{$flag}->{$name});

@@ -61,7 +61,7 @@ sub add {
 	return scalar($cb).$fd;
     } elsif($type eq 'i') {
 	if ($fd <= 0) {
-	    W0('a timeout has to be greater than 0.');
+	    W0('A timeout has to be greater than 0.');
 	    return 0;
 	}
 	$timeout = $fd;
@@ -81,7 +81,7 @@ sub revoke {
     my $type = shift;
 
     unless ($type eq 'r' || $type eq 'w' || $type eq 'e') {
-	W0('you cannot revoke an event that is not read, write or exception.');
+	W0('You cannot revoke a timer PSYC::Event');
 	return 0;
     }
     

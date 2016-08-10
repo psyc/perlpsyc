@@ -94,7 +94,7 @@ sub get_context {
 	    register_context($addr, $obj);
 	}
     } else {
-	W0('%s does not seem to be a valid UNL. Dumping message.', $addr);	
+	W0('%s does not seem to be a valid UNL. Dropping message.', $addr);	
 	return 0;
     }
     return $obj;

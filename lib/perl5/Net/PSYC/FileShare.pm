@@ -85,7 +85,7 @@ tie %smethod, 'Net::PSYC::Tie::AbbrevHash';
     } else {
 	$filename = $store_dir.'/'.$filename;
 	if (-e $filename && -s $filename != $size) {
-	    W0('the actual size of %s on your hd does not match the transfered file', $filename);
+	    W0('The actual size of %s on your disk does not match the transferred file', $filename);
 	    return 0;
 	}
 	$t = 0;
@@ -125,7 +125,7 @@ tie %smethod, 'Net::PSYC::Tie::AbbrevHash';
 		      $vars->{'_seek_resume'}, $vars->{'_size_file'});
 
     unless ($r) {
-	Net::PSYC::W0('sendfile did fail somehow!', $r);		
+	Net::PSYC::W0('PSYC: send_file failed somehow!', $r);		
     }
 },
 );

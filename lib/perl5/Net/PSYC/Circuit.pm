@@ -165,7 +165,7 @@ sub accept_modules {
 	    return $self->zlib_init_client(); 
 	} elsif ($module eq '_encrypt') {
 	    unless (SSL()) {
-		W0("The other side offers SSL-encryption. It would be wise to install IO::Socket::SSL (v0.93 or above).");
+		W0("The other side offers TLS encryption. It would be wise to install IO::Socket::SSL (v0.93 or above).");
 		return 1;
 	    }
 	
@@ -180,9 +180,7 @@ sub accept_modules {
 	    return 1;
 	}
     } else {
-	# may be impossible.
-	W0('It is impossible to remove the mmp module %s from an established'.
-	   ' connection.', $module);
+	W0('It is impossible to remove the PSYC routing layer module %s from an established connection.', $module);
 	return 1 if (!exists $self->{'O'}->{'_understand_modules'}->{$module});
     }
 }

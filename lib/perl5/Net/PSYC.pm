@@ -346,7 +346,7 @@ sub same_host {
 sub use_modules {
     foreach (@_) {
 	unless (/_state|_encrypt|_compress|_fragments|_length|_context/) {
-	    W0('No suchs MMP module: %s', $_);
+	    W0('No such PSYC routing module: %s', $_);
 	}
 	$O{'_understand_modules'}->{$_} = 1;
     }
@@ -372,7 +372,7 @@ sub bind_uniform {
 	    $return = $UDP;
 	    $port = $return->{'PORT'};
 	} else {
-	    W0('UDP bind to %s:%s failed: %s', $host, $port, $sock);
+	    W0('PSYC UDP bind to %s:%s failed: %s', $host, $port, $sock);
 	}
     }
     if (!$prots || $prots =~ /c/oi) { # bind a circuit
@@ -386,7 +386,7 @@ sub bind_uniform {
 	    $return = $L{$host.':'.$port};
 	    $port = $return->{'PORT'};
 	} else {
-	    W0('TCP bind to %s:%s failed: %s', $host, $port, $sock);
+	    W0('PSYC TCP bind to %s:%s failed: %s', $host, $port, $sock);
 	}
     }
     if ($prots && $prots =~ /s/oi) { # bind an SSL
