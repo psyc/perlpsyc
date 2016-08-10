@@ -15,6 +15,7 @@ manuals: htdocs $I
 	perldoc -oman bin/psyccmd >$M/man1/psyccmd.1
 	perldoc -oman bin/psycplay >$M/man1/psycplay.1
 	perldoc -oman bin/psyclisten >$M/man1/psyclisten.1
+	perldoc -oman bin/syslog2psyc >$M/man1/syslog2psyc.1
 
 html: htdocs
 	perldoc -ohtml bin/remotor >htdocs/remotor.html
@@ -23,6 +24,7 @@ html: htdocs
 	perldoc -ohtml bin/psyccmd >htdocs/psyccmd.html
 	perldoc -ohtml bin/psycplay >htdocs/psycplay.html
 	perldoc -ohtml bin/psyclisten >htdocs/psyclisten.html
+	perldoc -ohtml bin/syslog2psyc >htdocs/syslog2psyc.html
 
 htdocs:
 	mkdir -p $@ $M/man1 $M/man3
