@@ -72,6 +72,12 @@ sub tellpsyc {
 	# $pv{_nick} = $nick;
 	say "tellpsyc: ", $text if debug & 4;
 	return unless $target;
+	if (length $text > 404) {
+		$mc = "_error_excessive_data$mc";
+		$text = "[_amount_data] bytes of excess data ignored. Check remotor console.";
+		$var = "_amount_data";
+		$value = length $text;
+	}
 	sendmsg($target, $mc, $text, $value? { $var => $value } : \%pv);
 }
 
@@ -248,13 +254,13 @@ sub idlebilly {
 
 	$opt_m = $config{"$nick:monitor"} if !$opt_m and $config{"$nick:monitor"};
 	$torlog = $opt_m || "/var/run/tor/log.fifo";
-	if ($opt_m and not -p $torlog) {
+	if (($opt_m || $opt_f) and not -p $torlog) {
 		undef $!;
 		die "Could not mkfifo $torlog: $!" unless mkfifo $torlog, 0600;
 		system('chgrp', 'tor', $torlog);
 		chmod 0660, $torlog;
 	} elsif (not -p $torlog) {
-		say "No fifo pipe found at $torlog" if debug & 8;
+		say "No fifo pipe found at $torlog" if $opt_f or debug & 8;
 		undef $torlog;
 	}
 	if ($torlog) {
