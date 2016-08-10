@@ -446,7 +446,7 @@ X
 	}
 	# should never get here
 	# while(<stdin>) { &parse($_); }
-	&fade(0);
+	# &fade(0);
 }
 exit;
 

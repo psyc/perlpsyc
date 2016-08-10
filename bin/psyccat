@@ -1,10 +1,5 @@
 #!/usr/bin/perl -I/usr/depot/lib/perl5
-#
-# usage: $0 [-t <uniform>] [-b <uniform>] [-m <method>] [<files>]
-#
-# this collects everything it gets from files or stdin
-# and tries to send it to the target in a single packet
-# this will obviously encounter size limits when using UDP
+# See below for documentation.
 
 require 5.000;
 use Net::PSYC;
@@ -19,17 +14,15 @@ if ($opt_h) {
 	exit;
 }
 
-$binder = $opt_b || 'psyc://localhost:0d/';	# get yourself any udp port
 $target = $opt_t || 'psyc://localhost:2244/';	# talk to local "listen" script
-$method = $opt_m || '_data_bulk';		# couldnt think of anything better
+$method = $opt_m || '_data_bulk';
 
-bind_uniform( $binder );
+bind_uniform( $opt_b ) if $opt_b;
 
 print STDERR <<X if $noargs and -t STDIN;
-*** $0 process bound to -b $binder address.
-*** Message will be delivered by -m $method to -t $target.
 *** Insert a multiline message now.
 *** Message will be sent when input is terminated by CTRL-D.
+*** Message will be delivered by -m $method to -t $target.
 *** Try -h for help or 'perldoc psyccat' for a manual.
 
 X
@@ -59,7 +52,7 @@ psyccat - a simple tool to send an unnamed file via PSYC
 
 =head1 SYNOPSIS
 
- psyccat [<options>] < <file>
+ psyccat [<options>] <file>
     or
  <command> | psyccat [<options>]
     or
@@ -74,14 +67,18 @@ psyccat - a simple tool to send an unnamed file via PSYC
 
 =head1 DESCRIPTION
 
-Behaves a bit like cat(1). By default it will dump the file
-to a psyclisten running on the localhost.
+Behaves a bit like cat(1). By default it will collect
+everything from files or stdin, then attempt to send it
+in a single packet to a psyclisten running on the localhost.
 
 =head1 CAVEATS
 
 As long as Net::PSYC does not provide any encryption, you
 should use this within a trustworthy local network or
 as a localhost service.
+
+Also, psyccat will encounter size limits if you decide to
+bind to a UDP address.
 
 =head1 AUTHORS
 

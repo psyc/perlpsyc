@@ -1,31 +1,22 @@
 #!/usr/bin/perl -I/usr/depot/lib/perl5
-#
-# usage: psyccmd [-t <uniform>] [-b <uniform>] [-m <method>] [<command>]
-#   or
-# usage: psycplay [-t <uniform>] [-b <uniform>] <file>
-#
-# other options:
-#	-v(erbose)
-#	-n(o_action)
-#
-# this little thing sends _request_execute containing
-# what you provide on the command line (or with every
-# line of stdin) to a psyc entity given by option,
-# or to the local port 1144 which i use for the
-# jukebox server psycmp3
-#
-# i use this with "alias p psycplay" for quick submitting
-# of music to the player
+# See below for documentation.
 
 require 5.000;
 use Net::PSYC;
+use Pod::Usage qw( pod2usage );
 
+my $noargs = $#ARGV == -1;
 use Getopt::Std;
 getopt('tbm');
 
+if ($opt_h) {
+	pod2usage;
+	exit;
+}
+
 $binder = $opt_b || 'psyc://:0d/';	# get yourself any udp port on local ip
 					# talk to local psycmp3 (default)
-$target = $opt_t || 'psyc://127.0.0.1:1144/';
+$target = $opt_t || 'psyc://localhost:1144d/';
 $method = $opt_m || '_request_execute';	# commands are kind requests
 					# for execution in PSYC
 
@@ -42,6 +33,12 @@ if ($#ARGV >= 0) {
 	$_ = join( ' ', @ARGV );
 	&go( $_ );
 } else {
+	print STDERR <<X if $noargs and -t STDIN;
+*** Insert commands now. Each line will be sent as a command
+*** to -t $target using the -m $method.
+*** Try -h for help or 'perldoc psyccmd' for a manual.
+
+X
 	while(<STDIN>) {
 		chomp;
 		&go($_);
@@ -60,6 +57,51 @@ sub go {
 	print "\t'$_'\n" if $opt_v;
 	return if $opt_n;
 	$rc = sendmsg ($target, $method, $_); # , { _kilroy => 'woz ere' } );
-	die "sendmsg returns $rc" if $rc;
+	die $rc if $rc;
 }
+
+__END__
+
+=pod
+
+=head1 NAME
+
+psyccmd - a tool to remote control a PSYC entity or application
+
+psycplay - a tool to remote control a PSYC music player
+
+=head1 SYNOPSIS
+
+ psyccmd [-t <uniform>] [-b <uniform>] [-m <method>] [<command>]
+   or
+ psycplay [-t <uniform>] [-b <uniform>] <file>
+
+ Other options:
+	-v	Be verbose.
+	-q	Be quieter.
+	-n	No action.
+
+=head1 DESCRIPTION
+
+This little thing sends _request_execute containing
+what you provide on the command line (or with every
+line of stdin) to a PSYC entity given by option,
+or to the local port 1144 which is the default for
+the jukebox server psycmp3.
+
+=head1 CAVEATS
+
+As long as Net::PSYC does not provide any encryption, you
+should use this within a trustworthy local network or
+as a localhost service.
+
+=head1 AUTHORS
+
+carlo von lynX.
+
+=head1 COPYRIGHT
+
+This program is free software, published under the Affero GNU Public
+License. A disclaimer isn't necessary in my country, nor do I need
+to mention the current year to assert a copyright.
 

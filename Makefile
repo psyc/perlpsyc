@@ -12,12 +12,16 @@ manuals: htdocs $I
 	perldoc -oman bin/psycion >$M/man1/psycion.1
 	perldoc -oman bin/remotor >$M/man1/remotor.1
 	perldoc -oman bin/psyccat >$M/man1/psyccat.1
+	perldoc -oman bin/psyccmd >$M/man1/psyccmd.1
+	perldoc -oman bin/psycplay >$M/man1/psycplay.1
 	perldoc -oman bin/psyclisten >$M/man1/psyclisten.1
 
 html: htdocs
 	perldoc -ohtml bin/remotor >htdocs/remotor.html
 	perldoc -ohtml bin/psycion >htdocs/psycion.html
 	perldoc -ohtml bin/psyccat >htdocs/psyccat.html
+	perldoc -ohtml bin/psyccmd >htdocs/psyccmd.html
+	perldoc -ohtml bin/psycplay >htdocs/psycplay.html
 	perldoc -ohtml bin/psyclisten >htdocs/psyclisten.html
 
 htdocs:
@@ -26,7 +30,9 @@ htdocs:
 # just to give you a rough idea
 install: $D/share
 	# please provide destination prefix in export DESTDIR=/usr/local or so
+	ln -f bin/psyccmd bin/psycplay
 	install bin/* $D/bin
+	ln -f $D/bin/psyccmd $D/bin/psycplay
 	cp -rp lib/* $D/lib
 	cp -rp share/* $D/share
 
