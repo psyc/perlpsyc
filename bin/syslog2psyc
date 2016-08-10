@@ -71,15 +71,18 @@ syslog2psyc - a daemon that forwards syslog events to a PSYC entity
 =head1 INSTALLATION
 
 First set up a pipe where we can get syslog events from:
+
 	mkfifo /dev/syslog2psyc
 	chown <user> /dev/syslog2psyc
 
 Then configure /dev/syslog2psyc as the destination for 
 syslog messages. In syslog-ng.conf it may look like this:
+
 	destination psyc { pipe("/dev/syslog2psyc"); };
 	log { source(src); destination(psyc); };
 
 In syslog.conf it may look like this:
+
 	*.warn;*.err			|/dev/syslog2psyc
 
 Finally run this script as <user>.
