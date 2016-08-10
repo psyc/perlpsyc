@@ -42,6 +42,7 @@ my $torctrl = undef;
 my $torlog = undef;
 my $torsock = undef;
 my $logpipe = undef;
+my $lastsend = undef;
 my $quitting = 0;
 my $target;
 my $nick;
@@ -123,10 +124,12 @@ sub torlogparse {
 		say "torlogparse: $_" if debug & 8;
 		return;
 	} elsif ( / \[(\w+)\] (.+)/ ) {
+		# catch when Tor yields repeated identical messages
+		return if $2 eq $lastsend;
 		# we don't send *real* PSYC warnings or errors because that would confuse
 		# PSYC signaling and gets dumped by the place to avoid potential loops.
 		my $mc = $1 eq 'err'? '_notice_error': $1 eq 'warn'? '_notice_warning': '_notice';
-		tellpsyc($mc . '_remotor', $2);
+		tellpsyc($mc . '_remotor', $lastsend = $2);
 		# fall thru
 	}
 	say $_;
