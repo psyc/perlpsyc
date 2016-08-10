@@ -10,7 +10,7 @@ use Time::HiRes;
 use Pod::Usage qw(pod2usage);
 
 my (%params, %key2hex);
-our $VERSION = '0.5';
+our $VERSION = '0.6';
 our $client;
 
 sub VERSION_MESSAGE {
@@ -22,7 +22,6 @@ sub HELP_MESSAGE {
 }
 
 BEGIN {
-    $VERSION = '0.5';
     require Net::PSYC;
     $Getopt::Std::STANDARD_HELP_VERSION = 1;
     getopts('l:w:c:smvhd:', \%params);

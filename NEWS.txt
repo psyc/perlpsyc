@@ -1,3 +1,15 @@
+=== 2016-08-19 === Net::PSYC 1.1 ===
+
+Desktop notifications integrated into psyclisten.
+
+Cookie auth support introduced into remotor.
+
+Clean-ups in psyccmd/psycplay, psycmp3, remotor.
+
+Reorganized or produced in-code documentation of several
+tools so that it can be rendered into manual files, web
+pages and usage messages.
+
 === 2016-06-24 === remoTor 1.2 ===
 
 When remoTor is running on the same machine as tor, it can

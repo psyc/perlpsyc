@@ -33,7 +33,7 @@ package Net::PSYC;
 # of remotor showed that it works just fine. So let's bump it to a 1.0
 # release.	--lynX
 #
-our $VERSION = '1.0';
+our $VERSION = '1.1';
 
 use strict;
 

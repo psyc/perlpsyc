@@ -11,7 +11,7 @@ my $host = '127.0.0.1';	    # defaults to try
 my $port = 9051;
 my $circ = 1;		    # request real-time circuit activity by default?
 
-sub version() { "1.2" }
+sub version() { "1.2.1" }
 
 #  0: all debug statements will be optimized away by the perl compiler
 #  1: debug Tor control
