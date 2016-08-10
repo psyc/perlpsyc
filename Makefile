@@ -11,10 +11,14 @@ manuals: htdocs $I
 	perldoc -oman lib/perl5/Net/PSYC/Client.pm >$M/man3/Net::PSYC::Client.3
 	perldoc -oman bin/psycion >$M/man1/psycion.1
 	perldoc -oman bin/remotor >$M/man1/remotor.1
+	perldoc -oman bin/psyccat >$M/man1/psyccat.1
+	perldoc -oman bin/psyclisten >$M/man1/psyclisten.1
 
 html: htdocs
 	perldoc -ohtml bin/remotor >htdocs/remotor.html
 	perldoc -ohtml bin/psycion >htdocs/psycion.html
+	perldoc -ohtml bin/psyccat >htdocs/psyccat.html
+	perldoc -ohtml bin/psyclisten >htdocs/psyclisten.html
 
 htdocs:
 	mkdir -p $@ $M/man1 $M/man3

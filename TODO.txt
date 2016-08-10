@@ -1,3 +1,11 @@
+________________________________________________________________________
+> PERLPSYC TODO:
+________________________________________________________________________
+
+== LIBRARY ==
+- provide proper shutdown procedure of all open sockets (+ remove sleep hack)
++ hashing shared secrets between client/server or client/places
+
 == PSYCION ==
 - regexp marks
 - documentation of possible keys
@@ -6,4 +14,3 @@
   dependencies: dev-perl/IO-Socket-SSL dev-perl/Curses
 - a user misunderstood ~/.psyc/me and only put his nickname into it
   psycion should complain
-

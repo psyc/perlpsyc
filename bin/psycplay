@@ -47,6 +47,8 @@ if ($#ARGV >= 0) {
 		&go($_);
 	}
 }
+sleep 4;
+exit;
 
 
 sub go {

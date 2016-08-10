@@ -8,15 +8,20 @@
 
 require 5.000;
 use Net::PSYC;
+use Pod::Usage qw( pod2usage );
 
 my $noargs = $#ARGV == -1;
-
 use Getopt::Std;
 getopt('tbm');
 
-$binder = $opt_b || 'psyc://127.0.0.1:0d/';	# get yourself any udp port
-$target = $opt_t || 'psyc://127.0.0.1:2244/';	# talk to local "listen" script
-$method = $opt_m || '_bulk';		# couldnt think of anything better
+if ($opt_h) {
+	pod2usage;
+	exit;
+}
+
+$binder = $opt_b || 'psyc://localhost:0d/';	# get yourself any udp port
+$target = $opt_t || 'psyc://localhost:2244/';	# talk to local "listen" script
+$method = $opt_m || '_data_bulk';		# couldnt think of anything better
 
 bind_uniform( $binder );
 
@@ -25,7 +30,7 @@ print STDERR <<X if $noargs and -t STDIN;
 *** Message will be delivered by -m $method to -t $target.
 *** Insert a multiline message now.
 *** Message will be sent when input is terminated by CTRL-D.
-*** Available options are -b, -t, -m and -q to quieten this information.
+*** Try -h for help or 'perldoc psyccat' for a manual.
 
 X
 
@@ -34,6 +39,7 @@ my $d = '';
 $d .= $_ while <>;
 
 go($d);
+sleep 4;
 exit;
 
 
@@ -42,4 +48,48 @@ sub go {
 	$rc = sendmsg ($target, $method, $a); # , { _kilroy => 'woz ere' } );
 	die "send: $rc" if $rc;
 }
+
+__END__
+
+=pod
+
+=head1 NAME
+
+psyccat - a simple tool to send an unnamed file via PSYC
+
+=head1 SYNOPSIS
+
+ psyccat [<options>] < <file>
+    or
+ <command> | psyccat [<options>]
+    or
+ psyccat [<options>]
+
+ Options:
+	-t <uniform>	PSYC address to deliver message to
+	-b <uniform>	PSYC address to bind to
+	-m <method>	PSYC method to use instead of the default
+	-h		Output this usage help message
+	-q		Be quiet
+
+=head1 DESCRIPTION
+
+Behaves a bit like cat(1). By default it will dump the file
+to a psyclisten running on the localhost.
+
+=head1 CAVEATS
+
+As long as Net::PSYC does not provide any encryption, you
+should use this within a trustworthy local network or
+as a localhost service.
+
+=head1 AUTHORS
+
+carlo von lynX.
+
+=head1 COPYRIGHT
+
+This program is free software, published under the Affero GNU Public
+License. A disclaimer isn't necessary in my country, nor do I need
+to mention the current year to assert a copyright.
 

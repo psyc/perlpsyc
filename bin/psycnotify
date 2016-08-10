@@ -56,4 +56,6 @@ foreach (@ARGV) {
 	print STDER "sendmsg to $_: $rc" if $rc;
 }
 
+sleep 4;
+exit;
 

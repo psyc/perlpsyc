@@ -26,6 +26,8 @@ add( \*STDIN, 'r', \&stdin );
 $rc = sendmsg(	$opt_t || 'psyc://localhost/',
 		$opt_m || '_query_users_amount' );
 die "send: $rc" if $rc;
+sleep 4;
+exit;
 
 # so far it's been easy, now let's receive some data
 start_loop();

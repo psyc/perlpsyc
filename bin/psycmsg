@@ -56,6 +56,10 @@ if ($#ARGV >= 0) {
         }
 }
 
+print STDERR "$method sent to $target\n" if $opt_v;
+sleep 4;
+exit;
+
 
 sub go {
         my $a = shift;
