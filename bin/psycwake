@@ -6,6 +6,8 @@
 use Getopt::Std;
 getopt('tbmpn');
 
+print STDERR "This tool uses the new PSYC syntax. Is the server using libpsyc?\n" if $opt_v;
+
 $target  = $opt_t || '127.1';
 $method  = $opt_m || '_notice_wake';
 
@@ -29,26 +31,18 @@ if ($target =~ m!^psyc://([^/]+)!i) {
 if ($port =~ /\D/) { $port = getservbyname($port, 'tcp') }
 die "No port" unless $port;
 
-# perl4 code is commented out here
-#
-# $iaddr = (gethostbyname($remote))[4]		|| die "no host: $remote";
-# $sockaddr = 'S n a4 x8'; $paddr = pack($sockaddr, 2, $port, $iaddr);
-# socket(S, 2, 1, 6)				|| die "socket: $!";
-#
 use Socket;
 $iaddr   = inet_aton($remote)			|| die "no host: $remote";
 $paddr   = sockaddr_in($port, $iaddr);
 socket(S, PF_INET, SOCK_STREAM, getprotobyname('tcp')) || die "socket: $!";
 
 print STDERR "Connecting $port on $remote\n" if $opt_v;
+
 connect(S, $paddr)				|| die "connect: $!";
 select S; $|=1; select STDOUT;
 
-#$sender = $ENV{HOST} || '';
-#$sender .= 'Mail';
-
 print S <<X;
-.
+|
 X
 
 #if (defined($_ = <S>) && !/^\./) {
@@ -60,12 +54,18 @@ X
 #print "\n";
 
 print S <<X;
-=_target	$target
+:_target	$target
 
 $method
 $text
-.
+|
+
+_request_circuit_shutdown
+|
 X
+
+print STDERR "$method sent to $target\n" if $opt_v;
+sleep 4;
 
 close (S)					|| die "close: $!";
 exit;
