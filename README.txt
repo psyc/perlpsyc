@@ -51,3 +51,10 @@ that site at http://youbroketheinternet.cheettyiapsyciew.onion
 
 Questions? ask psyc://psyced.org/~lynX or psyc://psyced.org/~el
 
+
+* Disclaimer
+
+The https://github.com/psyc/perlpsyc repository only serves promotional
+purposes. It may be outdated and we do not recommend participating in a
+centralistic social networking business.
+

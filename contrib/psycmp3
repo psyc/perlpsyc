@@ -11,11 +11,11 @@ X
 # i gave it functions i wouldn't have in any other.. hmmm
 #
 # requires the 'rxaudio' server engine from http://www.mpeg.org/xaudio/
-# actually.. it doesn't exist anymore. there are some binaries around.
 # the copy that I have been using since 1997 or so has a sha256sum of
 # ddb096ad42d9b6b543db8a3a6d9b4a9d52943e75e96697dbbadbc779140c498e.
 # although the general public never saw any source codes to it, it is
-# viable to assume that it didn't ship any backdoors.
+# viable to assume that it didn't ship any backdoors. grab a copy from 
+# http://mp3.pages.de/files/rxaudio
 #
 # furthermore psycmp3 requires the Net/PSYC.pm module since it uses its 
 # event multiplexing abilities not just to receive PSYC messages, but
@@ -147,7 +147,8 @@ $hateindex="/L/arclocator/lyndices/TRASH-$ENV{HOST}.ix";
 	use Net::PSYC qw( :event );
 	# special hack for timeout detection
 
-$scan = 0;
+	*name   = *File::Find::name;	# ugly style works
+	$scan = 0;
 
 MAIN: {
 	if ($#ARGV >= 0) {
@@ -872,7 +873,6 @@ sub enqueue {
 	}
 }
 sub wanted {
-	my $name = $File::Find::name;
 	($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
 	   $atime,$mtime,$ctime,$blksize,$blocks) = lstat($_);
 	my $neat = length($name)>70 ? "...".substr($name,-67) : $name
